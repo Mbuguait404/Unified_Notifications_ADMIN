@@ -2,20 +2,20 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-    // Check for the admin_session cookie
-    const session = request.cookies.get('admin_session')
+    // Check for the token cookie (or admin_session for backward compat during transition)
+    const token = request.cookies.get('token') || request.cookies.get('admin_session')
     const { pathname } = request.nextUrl
 
     // Define public paths that don't require authentication
     const isPublicPath = pathname === '/login' || pathname.startsWith('/_next') || pathname.startsWith('/static') || pathname.includes('.')
 
     // If the user has a session and is trying to access the login page, redirect to dashboard
-    if (session && pathname === '/login') {
+    if (token && pathname === '/login') {
         return NextResponse.redirect(new URL('/', request.url))
     }
 
     // If the user doesn't have a session and is trying to access a protected route
-    if (!session && !isPublicPath) {
+    if (!token && !isPublicPath) {
         // Redirect to login page
         return NextResponse.redirect(new URL('/login', request.url))
     }

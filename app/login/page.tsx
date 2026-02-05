@@ -7,24 +7,51 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, LayoutDashboard } from 'lucide-react'
+import { Loader2, LayoutDashboard, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setIsLoading(true)
 
-        // Simulate API call
-        setTimeout(() => {
-            // Set cookie for mock authentication
-            document.cookie = "admin_session=true; path=/; max-age=86400; SameSite=Lax";
+        const formData = new FormData(event.currentTarget);
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
 
-            router.push('/')
-            router.refresh()
-        }, 1000)
+        try {
+            const res = await fetch('http://localhost:3040/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+
+            if (!res.ok) {
+                throw new Error('Invalid credentials');
+            }
+
+            const data = await res.json();
+
+            // Store token in cookie
+            // In production, consider using httpOnly cookies via a backend proxy or Next.js API route
+            document.cookie = `token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+            // Also set the legacy mock cookie just in case logic depends on it, but prefer 'token'
+            document.cookie = `admin_session=true; path=/; max-age=86400; SameSite=Lax`;
+
+            // Store user data in localStorage
+            localStorage.setItem('user', JSON.stringify(data.user));
+
+            router.push('/');
+            router.refresh();
+
+        } catch (error) {
+            alert('Login failed: ' + (error as Error).message);
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -56,17 +83,39 @@ export default function LoginPage() {
                                         <Label htmlFor="email">Email</Label>
                                         <Input
                                             id="email"
+                                            name="email"
                                             type="email"
                                             placeholder="m@example.com"
                                             required
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <div className="flex items-center">
-                                            <Label htmlFor="password">Password</Label>
+                                        <Label htmlFor="password">Password</Label>
+
+                                        <div className="relative">
+                                            <Input
+                                                id="password"
+                                                name="password"
+                                                type={showPassword ? 'text' : 'password'}
+                                                required
+                                                className="pr-10"
+                                            />
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword((prev) => !prev)}
+                                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff className="h-4 w-4" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" />
+                                                )}
+                                            </button>
                                         </div>
-                                        <Input id="password" type="password" required />
                                     </div>
+
                                     <Button type="submit" className="w-full" disabled={isLoading}>
                                         {isLoading ? (
                                             <>

@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   Building2,
@@ -38,6 +39,36 @@ const supportNavigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [user, setUser] = useState<{ firstName: string; lastName: string; email: string } | null>(null)
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData))
+      } catch (e) {
+        console.error('Failed to parse user data', e)
+      }
+    }
+  }, [])
+
+  const handleLogout = () => {
+    // Clear cookies
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+    document.cookie = 'admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+
+    // Clear local storage
+    localStorage.removeItem('user')
+
+    // Redirect to login
+    router.push('/login')
+    router.refresh()
+  }
+
+  const userInitials = user
+    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase()
+    : 'U'
 
   return (
     <aside className="w-64 border-r border-border bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
@@ -106,14 +137,21 @@ export function Sidebar() {
       <div className="p-4 border-t border-sidebar-border space-y-2">
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent">
           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-semibold text-primary">AR</span>
+            <span className="text-xs font-semibold text-primary">{userInitials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">Alex Rivera</p>
-            <p className="text-xs opacity-75 truncate">alex@inflow.io</p>
+            <p className="text-sm font-semibold truncate">
+              {user ? `${user.firstName} ${user.lastName}` : 'Guest User'}
+            </p>
+            <p className="text-xs opacity-75 truncate">
+              {user ? user.email : 'guest@example.com'}
+            </p>
           </div>
         </div>
-        <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-sidebar-accent transition-colors text-sm">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-sidebar-accent transition-colors text-sm text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+        >
           <LogOut className="w-5 h-5 flex-shrink-0" />
           <span>Logout</span>
         </button>
