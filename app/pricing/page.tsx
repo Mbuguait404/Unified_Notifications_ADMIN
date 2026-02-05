@@ -16,7 +16,17 @@ import { Input } from '@/components/ui/input'
 import { Organization, organizationService } from '@/services/organizations.service'
 import { UpdatePricingModal } from '@/components/pricing/update-pricing-modal'
 import { MessageSquare, Phone, Mail, Search, Edit2, Coins } from 'lucide-react'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import { Badge } from '@/components/ui/badge'
+
 
 export default function PricingPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([])
@@ -24,6 +34,10 @@ export default function PricingPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 4
 
   const fetchOrganizations = async () => {
     try {
@@ -40,9 +54,19 @@ export default function PricingPage() {
     fetchOrganizations()
   }, [])
 
+  // Reset to page 1 when searching
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery])
+
   const filteredOrgs = organizations.filter((org) =>
     org.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredOrgs.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedOrgs = filteredOrgs.slice(startIndex, startIndex + itemsPerPage)
 
   const handleEdit = (org: Organization) => {
     setSelectedOrg(org)
@@ -135,7 +159,7 @@ export default function PricingPage() {
               />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -153,14 +177,14 @@ export default function PricingPage() {
                       Loading organizations...
                     </TableCell>
                   </TableRow>
-                ) : filteredOrgs.length === 0 ? (
+                ) : paginatedOrgs.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-10">
                       No organizations found.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredOrgs.map((org) => (
+                  paginatedOrgs.map((org) => (
                     <TableRow key={org._id}>
                       <TableCell className="font-medium">
                         <div>
@@ -198,6 +222,76 @@ export default function PricingPage() {
                 )}
               </TableBody>
             </Table>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to{' '}
+                  {Math.min(startIndex + itemsPerPage, filteredOrgs.length)} of{' '}
+                  {filteredOrgs.length} organizations
+                </p>
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          if (currentPage > 1) setCurrentPage(currentPage - 1)
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Logic to show limited page numbers if there are too many
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setCurrentPage(page)
+                              }}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        )
+                      }
+                      return null
+                    })}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
