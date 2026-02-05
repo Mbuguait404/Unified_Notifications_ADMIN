@@ -54,46 +54,63 @@ export default function OrganizationsPage() {
   const [selectedOrg, setSelectedOrg] = useState<any | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [credentialsForm, setCredentialsForm] = useState<any | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null)
+  const [createForm, setCreateForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    countryCode: '+254',
+    phoneNumber: '',
+    companyName: '',
+    sector: '',
+    country: '',
+  })
+
+  async function fetchOrganizations() {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const data = await organizationService.getAllOrganizations()
+      // Map backend data to UI format
+      const mappedOrgs = data.map((org: Organization & {
+        sector?: string
+        country?: string
+        credits?: number
+        emailFromName?: string | null
+        updatedAt?: string
+        credentials?: any
+      }) => ({
+        id: org._id,
+        name: org.name,
+        subdomain: org.slug || org.sector || 'N/A', // Use sector if slug missing
+        createdDate: org.createdAt ? format(new Date(org.createdAt), 'MMM dd, yyyy') : 'N/A',
+        plan: org.plan || 'Free', // Default to Free if undefined
+        notificationsMTD: org.notificationsMTD?.toLocaleString() || '0',
+        status: org.status || 'Active',
+        color: getRandomColor(org.name), // Helper for color
+        sector: (org as any).sector,
+        country: (org as any).country,
+        credits: (org as any).credits ?? 0,
+        emailFromName: (org as any).emailFromName,
+        createdAtRaw: org.createdAt,
+        updatedAtRaw: (org as any).updatedAt,
+        credentials: (org as any).credentials ?? {},
+        raw: org,
+      }))
+      setOrganizations(mappedOrgs)
+    } catch (err) {
+      console.error('Failed to fetch organizations:', err)
+      setError('Failed to load organizations. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchOrganizations() {
-      try {
-        const data = await organizationService.getAllOrganizations()
-        // Map backend data to UI format
-        const mappedOrgs = data.map((org: Organization & {
-          sector?: string
-          country?: string
-          credits?: number
-          emailFromName?: string | null
-          updatedAt?: string
-          credentials?: any
-        }) => ({
-          id: org._id,
-          name: org.name,
-          subdomain: org.slug || org.sector || 'N/A', // Use sector if slug missing
-          createdDate: org.createdAt ? format(new Date(org.createdAt), 'MMM dd, yyyy') : 'N/A',
-          plan: org.plan || 'Free', // Default to Free if undefined
-          notificationsMTD: org.notificationsMTD?.toLocaleString() || '0',
-          status: org.status || 'Active',
-          color: getRandomColor(org.name), // Helper for color
-          sector: org.sector,
-          country: org.country,
-          credits: org.credits ?? 0,
-          emailFromName: org.emailFromName,
-          createdAtRaw: org.createdAt,
-          updatedAtRaw: org.updatedAt,
-          credentials: org.credentials ?? {},
-          raw: org,
-        }))
-        setOrganizations(mappedOrgs)
-      } catch (err) {
-        console.error('Failed to fetch organizations:', err)
-        setError('Failed to load organizations. Please try again.')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchOrganizations()
   }, [])
 
@@ -193,7 +210,7 @@ export default function OrganizationsPage() {
               <Download className="w-4 h-4" />
               Export CSV
             </Button>
-            <Button className="flex items-center gap-2">
+            <Button className="flex items-center gap-2" onClick={() => setIsCreateOpen(true)}>
               <Plus className="w-4 h-4" />
               Create New
             </Button>
@@ -368,6 +385,236 @@ export default function OrganizationsPage() {
             </>
           )}
         </Card>
+
+        {/* Create Organization Modal */}
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create new organization</DialogTitle>
+              <DialogDescription>
+                Provision a new organization and primary admin user. This reuses the same flow as
+                the public signup experience.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {createError && (
+                <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-red-600">
+                  {createError}
+                </div>
+              )}
+              {createSuccess && (
+                <div className="rounded-md border border-green-500/40 bg-green-500/5 px-3 py-2 text-xs text-green-700">
+                  {createSuccess}
+                </div>
+              )}
+
+              <form
+                className="space-y-4"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setCreateError(null)
+                  setCreateSuccess(null)
+
+                  const requiredFields: (keyof typeof createForm)[] = [
+                    'firstName',
+                    'lastName',
+                    'email',
+                    'password',
+                    'phoneNumber',
+                    'companyName',
+                    'sector',
+                    'country',
+                  ]
+
+                  const missingField = requiredFields.find((field) => !createForm[field])
+                  if (missingField) {
+                    setCreateError('Please fill in all required fields.')
+                    return
+                  }
+
+                  try {
+                    setCreateLoading(true)
+                    await organizationService.createOrganization({
+                      firstName: createForm.firstName,
+                      lastName: createForm.lastName,
+                      email: createForm.email,
+                      password: createForm.password,
+                      countryCode: createForm.countryCode,
+                      phoneNumber: createForm.phoneNumber,
+                      companyName: createForm.companyName,
+                      sector: createForm.sector,
+                      country: createForm.country,
+                    })
+
+                    setCreateSuccess('Organization created successfully.')
+                    await fetchOrganizations()
+                    setIsCreateOpen(false)
+                    setCreateForm({
+                      firstName: '',
+                      lastName: '',
+                      email: '',
+                      password: '',
+                      countryCode: '+254',
+                      phoneNumber: '',
+                      companyName: '',
+                      sector: '',
+                      country: '',
+                    })
+                  } catch (err: any) {
+                    setCreateError(err.message || 'Failed to create organization.')
+                  } finally {
+                    setCreateLoading(false)
+                  }
+                }}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="first-name">First name*</Label>
+                    <Input
+                      id="first-name"
+                      value={createForm.firstName}
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({ ...prev, firstName: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="last-name">Last name*</Label>
+                    <Input
+                      id="last-name"
+                      value={createForm.lastName}
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({ ...prev, lastName: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="email">Work email*</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={createForm.email}
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({ ...prev, email: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="password">Password*</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={createForm.password}
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({ ...prev, password: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Country code*</Label>
+                    <Select
+                      value={createForm.countryCode}
+                      onValueChange={(value) =>
+                        setCreateForm((prev) => ({ ...prev, countryCode: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="+254">🇰🇪 +254</SelectItem>
+                        <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                        <SelectItem value="+44">🇬🇧 +44</SelectItem>
+                        <SelectItem value="+91">🇮🇳 +91</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">Phone number*</Label>
+                    <Input
+                      id="phone"
+                      value={createForm.phoneNumber}
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({ ...prev, phoneNumber: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="company-name">Company name*</Label>
+                    <Input
+                      id="company-name"
+                      value={createForm.companyName}
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({ ...prev, companyName: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Sector*</Label>
+                    <Select
+                      value={createForm.sector}
+                      onValueChange={(value) =>
+                        setCreateForm((prev) => ({ ...prev, sector: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select sector" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="technology">Technology</SelectItem>
+                        <SelectItem value="finance">Finance</SelectItem>
+                        <SelectItem value="healthcare">Healthcare</SelectItem>
+                        <SelectItem value="retail">Retail</SelectItem>
+                        <SelectItem value="logistics">Logistics</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Country*</Label>
+                    <Select
+                      value={createForm.country}
+                      onValueChange={(value) =>
+                        setCreateForm((prev) => ({ ...prev, country: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Kenya">Kenya</SelectItem>
+                        <SelectItem value="United States">United States</SelectItem>
+                        <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                        <SelectItem value="India">India</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsCreateOpen(false)}
+                    disabled={createLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createLoading}>
+                    {createLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create organization'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Organization Details / Edit Modal */}
         <Dialog open={isDetailsOpen} onOpenChange={(open) => !open && handleCloseDetails()}>
