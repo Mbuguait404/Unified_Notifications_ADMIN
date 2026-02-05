@@ -27,21 +27,19 @@ import {
   Loader2,
   Edit,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { organizationService, Organization } from '@/services/organizations.service'
 import { format } from 'date-fns'
 import { CreateOrganizationDialog } from './components/CreateOrganizationDialog'
-import { OrganizationDetailsDialog } from './components/OrganizationDetailsDialog'
 
 export default function OrganizationsPage() {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [planFilter, setPlanFilter] = useState('all')
   const [organizations, setOrganizations] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedOrg, setSelectedOrg] = useState<any | null>(null)
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-  const [credentialsForm, setCredentialsForm] = useState<any | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
 
   async function fetchOrganizations() {
@@ -98,67 +96,12 @@ export default function OrganizationsPage() {
   }
 
   function handleOpenDetails(org: any) {
-    setSelectedOrg(org)
-    setCredentialsForm(org.credentials ?? {})
-    setIsDetailsOpen(true)
+    router.push(`/organizations/${org.id}`)
   }
 
-  function handleCloseDetails() {
-    setIsDetailsOpen(false)
-    setSelectedOrg(null)
-    setCredentialsForm(null)
-  }
-
-  function handleDetailChange(field: string, value: string | number) {
-    if (!selectedOrg) return
-    setSelectedOrg((prev: any) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  function handleCredentialChange(field: string, value: string) {
-    setCredentialsForm((prev: any) => ({
-      ...(prev || {}),
-      [field]: value,
-    }))
-  }
-
-  function handleSaveDetails() {
-    if (!selectedOrg) return
-    // TODO: Wire up to backend update endpoint
-    console.log('Save organization details', selectedOrg)
-  }
-
-  function handleSaveCredentials() {
-    if (!selectedOrg) return
-    // TODO: Wire up to backend credentials update endpoint
-    console.log('Save organization credentials', {
-      id: selectedOrg.id,
-      credentials: credentialsForm,
-    })
-  }
-
-  function handleToggleSuspend() {
-    if (!selectedOrg) return
-    const nextStatus = selectedOrg.status === 'Suspended' ? 'Active' : 'Suspended'
-    setSelectedOrg((prev: any) => ({
-      ...prev,
-      status: nextStatus,
-    }))
-    // Optimistically update table list
-    setOrganizations((prev) =>
-      prev.map((org) =>
-        org.id === selectedOrg.id ? { ...org, status: nextStatus } : org,
-      ),
-    )
-    // TODO: Call backend to persist status change
-  }
-
-  function handleLoginIntoOrganization() {
-    if (!selectedOrg) return
-    // TODO: Implement real "login into organization" / impersonation flow
-    console.log('Login into organization', selectedOrg.id)
+  function handleToggleSuspend(orgId: string, currentStatus: string) {
+    // This can stay here if we want to toggle from the list, or we just remove it
+    // For now I'll just remove the unused handlers that was previously meant for the dialog
   }
 
   const filteredOrgs = organizations.filter((org) => {
@@ -366,18 +309,6 @@ export default function OrganizationsPage() {
           onCreated={fetchOrganizations}
         />
 
-        <OrganizationDetailsDialog
-          open={isDetailsOpen}
-          onClose={handleCloseDetails}
-          selectedOrg={selectedOrg}
-          credentialsForm={credentialsForm}
-          onLoginIntoOrganization={handleLoginIntoOrganization}
-          onToggleSuspend={handleToggleSuspend}
-          onDetailChange={handleDetailChange}
-          onCredentialChange={handleCredentialChange}
-          onSaveDetails={handleSaveDetails}
-          onSaveCredentials={handleSaveCredentials}
-        />
       </div>
     </AppLayout>
   )

@@ -16,6 +16,25 @@ export const organizationService = {
         return api.get<Organization[]>('/organizations');
     },
 
+    getOrganizationById: async (id: string): Promise<Organization & {
+        sector?: string;
+        country?: string;
+        credits?: number;
+        emailFromName?: string | null;
+        updatedAt?: string;
+        credentials?: any;
+    }> => {
+        return api.get(`/organizations/${id}`);
+    },
+
+    updateOrganization: async (id: string, payload: any) => {
+        return api.patch(`/organizations/${id}`, payload);
+    },
+
+    updateOrganizationCredentials: async (id: string, credentials: any) => {
+        return api.patch(`/organizations/${id}/credentials`, { credentials });
+    },
+
     // Super admin: create a new organization + primary admin user
     createOrganization: async (payload: {
         firstName: string;

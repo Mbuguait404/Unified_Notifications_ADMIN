@@ -56,5 +56,47 @@ export const api = {
         return response.json();
     },
 
-    // Add other methods (PUT, DELETE) as needed
+    patch: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
+        const token = getAuthToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...options.headers,
+        };
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            ...options,
+            method: 'PATCH',
+            body: JSON.stringify(body),
+            headers,
+        });
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.statusText}`);
+        }
+
+        return response.json();
+    },
+
+    put: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
+        const token = getAuthToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...options.headers,
+        };
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            ...options,
+            method: 'PUT',
+            body: JSON.stringify(body),
+            headers,
+        });
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.statusText}`);
+        }
+
+        return response.json();
+    },
 };
