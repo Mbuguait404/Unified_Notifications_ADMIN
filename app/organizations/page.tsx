@@ -7,6 +7,16 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -25,6 +35,11 @@ import {
   TrendingUp,
   MoreVertical,
   Loader2,
+  LogIn,
+  ShieldBan,
+  ShieldCheck,
+  KeyRound,
+  Edit,
 } from 'lucide-react'
 import { organizationService, Organization } from '@/services/organizations.service'
 import { format } from 'date-fns'
@@ -36,13 +51,23 @@ export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedOrg, setSelectedOrg] = useState<any | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [credentialsForm, setCredentialsForm] = useState<any | null>(null)
 
   useEffect(() => {
     async function fetchOrganizations() {
       try {
         const data = await organizationService.getAllOrganizations()
         // Map backend data to UI format
-        const mappedOrgs = data.map((org: Organization & { sector?: string }) => ({
+        const mappedOrgs = data.map((org: Organization & {
+          sector?: string
+          country?: string
+          credits?: number
+          emailFromName?: string | null
+          updatedAt?: string
+          credentials?: any
+        }) => ({
           id: org._id,
           name: org.name,
           subdomain: org.slug || org.sector || 'N/A', // Use sector if slug missing
@@ -51,6 +76,14 @@ export default function OrganizationsPage() {
           notificationsMTD: org.notificationsMTD?.toLocaleString() || '0',
           status: org.status || 'Active',
           color: getRandomColor(org.name), // Helper for color
+          sector: org.sector,
+          country: org.country,
+          credits: org.credits ?? 0,
+          emailFromName: org.emailFromName,
+          createdAtRaw: org.createdAt,
+          updatedAtRaw: org.updatedAt,
+          credentials: org.credentials ?? {},
+          raw: org,
         }))
         setOrganizations(mappedOrgs)
       } catch (err) {
@@ -71,6 +104,70 @@ export default function OrganizationsPage() {
       hash = name.charCodeAt(i) + ((hash << 5) - hash)
     }
     return colors[Math.abs(hash) % colors.length]
+  }
+
+  function handleOpenDetails(org: any) {
+    setSelectedOrg(org)
+    setCredentialsForm(org.credentials ?? {})
+    setIsDetailsOpen(true)
+  }
+
+  function handleCloseDetails() {
+    setIsDetailsOpen(false)
+    setSelectedOrg(null)
+    setCredentialsForm(null)
+  }
+
+  function handleDetailChange(field: string, value: string | number) {
+    if (!selectedOrg) return
+    setSelectedOrg((prev: any) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  function handleCredentialChange(field: string, value: string) {
+    setCredentialsForm((prev: any) => ({
+      ...(prev || {}),
+      [field]: value,
+    }))
+  }
+
+  function handleSaveDetails() {
+    if (!selectedOrg) return
+    // TODO: Wire up to backend update endpoint
+    console.log('Save organization details', selectedOrg)
+  }
+
+  function handleSaveCredentials() {
+    if (!selectedOrg) return
+    // TODO: Wire up to backend credentials update endpoint
+    console.log('Save organization credentials', {
+      id: selectedOrg.id,
+      credentials: credentialsForm,
+    })
+  }
+
+  function handleToggleSuspend() {
+    if (!selectedOrg) return
+    const nextStatus = selectedOrg.status === 'Suspended' ? 'Active' : 'Suspended'
+    setSelectedOrg((prev: any) => ({
+      ...prev,
+      status: nextStatus,
+    }))
+    // Optimistically update table list
+    setOrganizations((prev) =>
+      prev.map((org) =>
+        org.id === selectedOrg.id ? { ...org, status: nextStatus } : org,
+      ),
+    )
+    // TODO: Call backend to persist status change
+  }
+
+  function handleLoginIntoOrganization() {
+    if (!selectedOrg) return
+    // TODO: Implement real "login into organization" / impersonation flow
+    console.log('Login into organization', selectedOrg.id)
   }
 
   const filteredOrgs = organizations.filter((org) => {
@@ -238,9 +335,20 @@ export default function OrganizationsPage() {
                           </Badge>
                         </td>
                         <td className="py-4 px-6">
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-1"
+                              onClick={() => handleOpenDetails(org)}
+                            >
+                              <Edit className="w-3 h-3" />
+                              View / Edit
+                            </Button>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -260,6 +368,293 @@ export default function OrganizationsPage() {
             </>
           )}
         </Card>
+
+        {/* Organization Details / Edit Modal */}
+        <Dialog open={isDetailsOpen} onOpenChange={(open) => !open && handleCloseDetails()}>
+          <DialogContent className="max-w-3xl">
+            {selectedOrg && (
+              <div className="space-y-6">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3">
+                    <div
+                      className={`w-11 h-11 rounded-lg ${selectedOrg.color} flex items-center justify-center text-white text-sm font-bold`}
+                    >
+                      {selectedOrg.name
+                        .split(' ')
+                        .slice(0, 2)
+                        .map((w: string) => w[0])
+                        .join('')}
+                    </div>
+                    <div className="flex flex-col">
+                      <span>{selectedOrg.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {selectedOrg.subdomain}
+                      </span>
+                    </div>
+                    <Badge
+                      className={`ml-auto ${
+                        selectedOrg.status === 'Active'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {selectedOrg.status}
+                    </Badge>
+                  </DialogTitle>
+                  <DialogDescription>
+                    View and edit organization details. Use the tabs below to manage profile and
+                    credentials.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Top actions */}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="flex items-center gap-2"
+                    onClick={handleLoginIntoOrganization}
+                  >
+                    <LogIn className="w-3 h-3" />
+                    Login into organization
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={selectedOrg.status === 'Suspended' ? 'outline' : 'destructive'}
+                    className="flex items-center gap-2"
+                    onClick={handleToggleSuspend}
+                  >
+                    {selectedOrg.status === 'Suspended' ? (
+                      <>
+                        <ShieldCheck className="w-3 h-3" />
+                        Unsuspend
+                      </>
+                    ) : (
+                      <>
+                        <ShieldBan className="w-3 h-3" />
+                        Suspend
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <KeyRound className="w-3 h-3" />
+                    Edit credentials
+                  </Button>
+                </div>
+
+                {/* Meta info */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
+                  <div>
+                    <p className="font-medium text-foreground text-xs">Sector</p>
+                    <p>{selectedOrg.sector || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-xs">Country</p>
+                    <p>{selectedOrg.country || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-xs">Credits</p>
+                    <p>{selectedOrg.credits ?? 0}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-xs">Created</p>
+                    <p>
+                      {selectedOrg.createdAtRaw
+                        ? format(new Date(selectedOrg.createdAtRaw), 'MMM dd, yyyy')
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                <Tabs defaultValue="details" className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="credentials">Credentials</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="details" className="space-y-4 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="org-name">Organization name</Label>
+                        <Input
+                          id="org-name"
+                          value={selectedOrg.name}
+                          onChange={(e) => handleDetailChange('name', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="org-sector">Sector</Label>
+                        <Input
+                          id="org-sector"
+                          value={selectedOrg.sector || ''}
+                          onChange={(e) => handleDetailChange('sector', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="org-country">Country</Label>
+                        <Input
+                          id="org-country"
+                          value={selectedOrg.country || ''}
+                          onChange={(e) => handleDetailChange('country', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="org-credits">Credits</Label>
+                        <Input
+                          id="org-credits"
+                          type="number"
+                          value={selectedOrg.credits ?? 0}
+                          onChange={(e) =>
+                            handleDetailChange('credits', Number(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label htmlFor="org-email-from-name">Email from name</Label>
+                        <Input
+                          id="org-email-from-name"
+                          value={selectedOrg.emailFromName || ''}
+                          onChange={(e) => handleDetailChange('emailFromName', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label>Notes</Label>
+                        <Textarea placeholder="Internal notes about this organization (optional)" />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button size="sm" onClick={handleSaveDetails}>
+                        Save details
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="credentials" className="space-y-4 pt-2">
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                          SMS credentials
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5 md:col-span-2">
+                            <Label htmlFor="sms-api-url">API URL</Label>
+                            <Input
+                              id="sms-api-url"
+                              value={credentialsForm?.sms_apiUrl || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('sms_apiUrl', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="sms-api-key">API key</Label>
+                            <Input
+                              id="sms-api-key"
+                              type="password"
+                              value={credentialsForm?.sms_apiKey || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('sms_apiKey', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="sms-partner-id">Partner ID</Label>
+                            <Input
+                              id="sms-partner-id"
+                              value={credentialsForm?.sms_partnerID || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('sms_partnerID', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5 md:col-span-2">
+                            <Label htmlFor="sms-short-code">Short code</Label>
+                            <Input
+                              id="sms-short-code"
+                              value={credentialsForm?.sms_shortCode || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('sms_shortCode', e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                          Email credentials
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="email-host">Host</Label>
+                            <Input
+                              id="email-host"
+                              value={credentialsForm?.email_host || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('email_host', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="email-port">Port</Label>
+                            <Input
+                              id="email-port"
+                              value={credentialsForm?.email_port || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('email_port', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="email-user">User</Label>
+                            <Input
+                              id="email-user"
+                              value={credentialsForm?.email_user || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('email_user', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="email-pass">Password / App password</Label>
+                            <Input
+                              id="email-pass"
+                              type="password"
+                              value={credentialsForm?.email_pass || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('email_pass', e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1.5 md:col-span-2">
+                            <Label htmlFor="email-from">From address</Label>
+                            <Input
+                              id="email-from"
+                              value={credentialsForm?.email_from || ''}
+                              onChange={(e) =>
+                                handleCredentialChange('email_from', e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button size="sm" onClick={handleSaveCredentials}>
+                        Save credentials
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )
