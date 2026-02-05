@@ -9,6 +9,11 @@ export interface Organization {
     notificationsMTD?: number; // Might not be in backend response yet
     status: string;
     color?: string; // UI specific, might need mapping
+    rates?: {
+        sms: number;
+        whatsapp: number;
+        email: number;
+    };
 }
 
 export const organizationService = {
