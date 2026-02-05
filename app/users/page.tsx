@@ -17,7 +17,9 @@ import {
   XCircle,
   RefreshCcw,
   Eye,
-  EyeOff
+  EyeOff,
+  UserPlus,
+  Plus
 } from 'lucide-react'
 import {
   Table,
@@ -71,6 +73,17 @@ export default function UsersPage() {
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [newUser, setNewUser] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    role: 'user',
+    organization: '',
+    password: '',
+    countryCode: '+254'
+  })
   const [updateLoading, setUpdateLoading] = useState(false)
 
   const fetchData = async () => {
@@ -151,6 +164,31 @@ export default function UsersPage() {
     }
   }
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUpdateLoading(true)
+    try {
+      await usersService.createUser(newUser)
+      toast.success('User created successfully')
+      setIsCreateModalOpen(false)
+      setNewUser({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phoneNumber: '',
+        role: 'user',
+        organization: '',
+        password: '',
+        countryCode: '+254'
+      })
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to create user')
+    } finally {
+      setUpdateLoading(false)
+    }
+  }
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = (user.firstName + ' ' + user.lastName + ' ' + user.email).toLowerCase().includes(searchTerm.toLowerCase())
     const matchesOrg = selectedOrg === 'all' || user.organization?._id === selectedOrg
@@ -168,9 +206,14 @@ export default function UsersPage() {
             <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Users Management</h1>
             <p className="text-muted-foreground mt-1">Manage users across all organizations and monitor usage.</p>
           </div>
-          <Button onClick={fetchData} variant="outline" size="icon" className="shadow-sm">
-            <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setIsCreateModalOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
+              <Plus className="mr-2 h-4 w-4" /> Create User
+            </Button>
+            <Button onClick={fetchData} variant="outline" size="icon" className="shadow-sm">
+              <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
+          </div>
         </div>
 
         {/* Stats Section */}
@@ -484,6 +527,133 @@ export default function UsersPage() {
                 {updateLoading ? 'Resetting...' : 'Reset Password'}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create User Modal */}
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-primary" />
+                Create New User
+              </DialogTitle>
+              <DialogDescription>Add a new user to the system and assign them to an organization.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateUser} className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-firstName">First Name</Label>
+                  <Input
+                    id="create-firstName"
+                    placeholder="John"
+                    required
+                    value={newUser.firstName}
+                    onChange={e => setNewUser(prev => ({ ...prev, firstName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-lastName">Last Name</Label>
+                  <Input
+                    id="create-lastName"
+                    placeholder="Doe"
+                    required
+                    value={newUser.lastName}
+                    onChange={e => setNewUser(prev => ({ ...prev, lastName: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-email">Email Address</Label>
+                  <Input
+                    id="create-email"
+                    type="email"
+                    placeholder="john@example.com"
+                    required
+                    value={newUser.email}
+                    onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-phone">Phone Number</Label>
+                  <Input
+                    id="create-phone"
+                    placeholder="+254700000000"
+                    value={newUser.phoneNumber}
+                    onChange={e => setNewUser(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-org">Organization</Label>
+                  <Select
+                    value={newUser.organization}
+                    onValueChange={val => setNewUser(prev => ({ ...prev, organization: val }))}
+                  >
+                    <SelectTrigger id="create-org">
+                      <SelectValue placeholder="Select Organization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map(org => (
+                        <SelectItem key={org._id} value={org._id}>{org.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-role">System Role</Label>
+                  <Select
+                    value={newUser.role}
+                    onValueChange={val => setNewUser(prev => ({ ...prev, role: val as any }))}
+                  >
+                    <SelectTrigger id="create-role">
+                      <SelectValue placeholder="Select Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="create-password">Initial Password</Label>
+                <div className="relative">
+                  <Input
+                    id="create-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Minimum 8 characters"
+                    required
+                    minLength={8}
+                    value={newUser.password}
+                    onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground italic">Users can change their password after their first login.</p>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={updateLoading} className="px-8">
+                  {updateLoading ? 'Creating...' : 'Create User'}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

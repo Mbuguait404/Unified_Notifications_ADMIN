@@ -42,6 +42,10 @@ export const usersService = {
         return api.get<UserStats>('/users/admin/stats');
     },
 
+    createUser: async (data: any) => {
+        return api.post<User>('/users/admin', data);
+    },
+
     updateUser: async (id: string, data: Partial<User>) => {
         return api.put<User>(`/users/admin/${id}`, data);
     },
