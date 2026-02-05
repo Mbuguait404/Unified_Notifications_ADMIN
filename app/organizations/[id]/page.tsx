@@ -24,6 +24,7 @@ import {
     User,
     ArrowLeft,
     Loader2,
+    CreditCard
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { organizationService } from '@/services/organizations.service'
@@ -260,6 +261,14 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                             >
                                 <FileText className="w-5 h-5" />
                                 View logs
+                            </Button>
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                className="flex items-center gap-2"
+                            >
+                                <CreditCard className="w-5 h-5" />
+                                View Transactions
                             </Button>
                         </div>
                     </div>
