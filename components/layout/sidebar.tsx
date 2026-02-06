@@ -17,6 +17,7 @@ import {
   Headset,
   LogOut,
   Sparkles,
+  ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ const navigation = [
   { label: 'Pricing Plans', href: '/pricing', icon: Tag },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { label: 'Reports', href: '/reports', icon: FileText },
+  { label: 'System Logs', href: '/logs', icon: ScrollText },
 ]
 
 const supportNavigation = [
