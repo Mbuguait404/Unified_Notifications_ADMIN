@@ -24,6 +24,28 @@ export interface MessageLog {
     createdAt: string;
 }
 
+export interface SystemLog {
+    _id: string;
+    method: string;
+    url: string;
+    body: any;
+    query: any;
+    statusCode: number;
+    duration: number;
+    ip: string;
+    userAgent: string;
+    userId?: {
+        _id: string;
+        name: string;
+        email: string;
+    };
+    orgId?: {
+        _id: string;
+        name: string;
+    };
+    createdAt: string;
+}
+
 export const logsService = {
     getAllLogs: async (filters: any = {}): Promise<MessageLog[]> => {
         const queryParams = new URLSearchParams();
@@ -33,5 +55,15 @@ export const logsService = {
         if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
 
         return api.get<MessageLog[]>(`/message-logs/all?${queryParams.toString()}`);
+    },
+
+    getSystemLogs: async (filters: any = {}): Promise<SystemLog[]> => {
+        const queryParams = new URLSearchParams();
+        if (filters.method) queryParams.append('method', filters.method);
+        if (filters.statusCode) queryParams.append('statusCode', filters.statusCode);
+        if (filters.dateFrom) queryParams.append('dateFrom', filters.dateFrom);
+        if (filters.dateTo) queryParams.append('dateTo', filters.dateTo);
+
+        return api.get<SystemLog[]>(`/system-logs?${queryParams.toString()}`);
     },
 };
