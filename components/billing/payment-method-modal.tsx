@@ -50,6 +50,8 @@ export function PaymentMethodModal({
         consumerKey: '',
         consumerSecret: '',
         environment: 'production',
+        mpesaType: 'paybill',
+        storeNumber: '',
         isActive: true,
         isDefault: false,
     })
@@ -65,6 +67,8 @@ export function PaymentMethodModal({
                 consumerKey: method.consumerKey,
                 consumerSecret: method.consumerSecret,
                 environment: method.environment,
+                mpesaType: method.mpesaType || 'paybill',
+                storeNumber: method.storeNumber || '',
                 isActive: method.isActive,
                 isDefault: method.isDefault,
             })
@@ -76,6 +80,8 @@ export function PaymentMethodModal({
                 consumerKey: '',
                 consumerSecret: '',
                 environment: 'production',
+                mpesaType: 'paybill',
+                storeNumber: '',
                 isActive: true,
                 isDefault: false,
             })
@@ -211,21 +217,56 @@ export function PaymentMethodModal({
                     <div className="space-y-4">
                         <h3 className="font-semibold text-sm">M-Pesa Credentials</h3>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="shortcode">
-                                Paybill/Till Number (Shortcode) <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                id="shortcode"
-                                placeholder="e.g., 174379"
-                                value={formData.shortcode}
-                                onChange={(e) => handleChange('shortcode', e.target.value)}
-                                className={errors.shortcode ? 'border-red-500' : ''}
-                            />
-                            {errors.shortcode && (
-                                <p className="text-sm text-red-500">{errors.shortcode}</p>
-                            )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="mpesaType">Account Type</Label>
+                                <Select
+                                    value={formData.mpesaType}
+                                    onValueChange={(value) => handleChange('mpesaType', value)}
+                                >
+                                    <SelectTrigger id="mpesaType">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="paybill">Paybill</SelectItem>
+                                        <SelectItem value="till">Buy Goods (Till)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="shortcode">
+                                    {formData.mpesaType === 'paybill' ? 'Paybill Number' : 'Till Number'} <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                    id="shortcode"
+                                    placeholder={formData.mpesaType === 'paybill' ? 'e.g., 174379' : 'e.g., 4006947'}
+                                    value={formData.shortcode}
+                                    onChange={(e) => handleChange('shortcode', e.target.value)}
+                                    className={errors.shortcode ? 'border-red-500' : ''}
+                                />
+                                {errors.shortcode && (
+                                    <p className="text-sm text-red-500">{errors.shortcode}</p>
+                                )}
+                            </div>
                         </div>
+
+                        {formData.mpesaType === 'till' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="storeNumber">
+                                    Store Number <span className="text-muted-foreground">(Optional if same as Till)</span>
+                                </Label>
+                                <Input
+                                    id="storeNumber"
+                                    placeholder="Enter store number if different from till"
+                                    value={formData.storeNumber}
+                                    onChange={(e) => handleChange('storeNumber', e.target.value)}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    For Till Numbers, the BusinessShortCode in STK Push is often the Store Number.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="consumerKey">

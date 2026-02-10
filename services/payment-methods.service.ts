@@ -11,6 +11,8 @@ export interface PaymentMethod {
     consumerKey: string;
     consumerSecret: string;
     environment: 'sandbox' | 'production';
+    mpesaType: 'paybill' | 'till';
+    storeNumber?: string;
     isDefault: boolean;
     isActive: boolean;
     transactionCount: number;
@@ -26,6 +28,8 @@ export interface CreatePaymentMethodDto {
     consumerKey: string;
     consumerSecret: string;
     environment?: 'sandbox' | 'production';
+    mpesaType?: 'paybill' | 'till';
+    storeNumber?: string;
     isActive?: boolean;
     isDefault?: boolean;
 }
@@ -37,6 +41,8 @@ export interface UpdatePaymentMethodDto {
     consumerKey?: string;
     consumerSecret?: string;
     environment?: 'sandbox' | 'production';
+    mpesaType?: 'paybill' | 'till';
+    storeNumber?: string;
     isActive?: boolean;
     isDefault?: boolean;
 }
