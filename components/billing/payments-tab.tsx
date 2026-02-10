@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
     Table,
@@ -20,102 +20,60 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Search, Eye, Download, Filter } from 'lucide-react'
+import { Search, Eye, Download, Filter, Loader2 } from 'lucide-react'
 import { PaymentDetailsModal } from './payment-details-modal'
-
-// Mock payment data
-const mockPayments = [
-    {
-        id: 'TXN-2024-001',
-        organizationId: 'org-001',
-        organizationName: 'Acme Corporation',
-        amount: 50000,
-        tokens: 50000,
-        paymentMethod: 'M-Pesa',
-        transactionRef: 'QA12BC34DE',
-        status: 'completed',
-        createdAt: '2024-02-10T10:30:00Z',
-        package: 'Token Purchase',
-        phoneNumber: '+254712345678',
-    },
-    {
-        id: 'TXN-2024-002',
-        organizationId: 'org-002',
-        organizationName: 'Tech Solutions Ltd',
-        amount: 25000,
-        tokens: 25000,
-        paymentMethod: 'M-Pesa',
-        transactionRef: 'QA56FG78HI',
-        status: 'completed',
-        createdAt: '2024-02-10T09:15:00Z',
-        package: 'Token Purchase',
-        phoneNumber: '+254723456789',
-    },
-    {
-        id: 'TXN-2024-003',
-        organizationId: 'org-003',
-        organizationName: 'Global Enterprises',
-        amount: 100000,
-        tokens: 100000,
-        paymentMethod: 'M-Pesa',
-        transactionRef: 'QA90JK12LM',
-        status: 'pending',
-        createdAt: '2024-02-10T08:45:00Z',
-        package: 'Token Purchase',
-        phoneNumber: '+254734567890',
-    },
-    {
-        id: 'TXN-2024-004',
-        organizationId: 'org-001',
-        organizationName: 'Acme Corporation',
-        amount: 75000,
-        tokens: 75000,
-        paymentMethod: 'M-Pesa',
-        transactionRef: 'QA34NO56PQ',
-        status: 'completed',
-        createdAt: '2024-02-09T16:20:00Z',
-        package: 'Token Purchase',
-        phoneNumber: '+254712345678',
-    },
-    {
-        id: 'TXN-2024-005',
-        organizationId: 'org-004',
-        organizationName: 'Innovation Hub',
-        amount: 15000,
-        tokens: 15000,
-        paymentMethod: 'M-Pesa',
-        transactionRef: 'QA78RS90TU',
-        status: 'failed',
-        createdAt: '2024-02-09T14:10:00Z',
-        package: 'Token Purchase',
-        phoneNumber: '+254745678901',
-    },
-]
+import { transactionsService, Transaction } from '@/services/transactions.service'
+import { toast } from 'sonner'
 
 export function PaymentsTab() {
+    const [payments, setPayments] = useState<Transaction[]>([])
+    const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
-    const [selectedPayment, setSelectedPayment] = useState<typeof mockPayments[0] | null>(null)
+    const [selectedPayment, setSelectedPayment] = useState<Transaction | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
 
-    const filteredPayments = mockPayments.filter((payment) => {
+    const fetchPayments = async () => {
+        try {
+            setLoading(true)
+            const data = await transactionsService.getAllTransactions()
+            setPayments(data)
+        } catch (error) {
+            console.error('Failed to fetch transactions:', error)
+            toast.error('Failed to load transactions')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchPayments()
+    }, [])
+
+    const filteredPayments = payments.filter((payment) => {
+        const orgName = payment.organizationId?.name || 'Unknown'
+        const orgId = payment.organizationId?._id || ''
+        const ref = payment.mpesaReference || ''
+        const id = payment._id
+
         const matchesSearch =
-            payment.organizationName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            payment.transactionRef.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            payment.id.toLowerCase().includes(searchQuery.toLowerCase())
+            orgName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            orgId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            ref.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            id.toLowerCase().includes(searchQuery.toLowerCase())
 
         const matchesStatus = statusFilter === 'all' || payment.status === statusFilter
 
         return matchesSearch && matchesStatus
     })
 
-    const handleViewDetails = (payment: typeof mockPayments[0]) => {
+    const handleViewDetails = (payment: Transaction) => {
         setSelectedPayment(payment)
         setIsModalOpen(true)
     }
 
     const getStatusBadge = (status: string) => {
-        const variants: Record<string, { variant: any; label: string }> = {
+        const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string }> = {
             completed: { variant: 'default', label: 'Completed' },
             pending: { variant: 'secondary', label: 'Pending' },
             failed: { variant: 'destructive', label: 'Failed' },
@@ -146,6 +104,14 @@ export function PaymentsTab() {
         }).format(amount)
     }
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        )
+    }
+
     return (
         <>
             <Card>
@@ -167,7 +133,7 @@ export function PaymentsTab() {
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by organization, transaction ID, or reference..."
+                                placeholder="Search by organization, ID, or reference..."
                                 className="pl-9"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -211,13 +177,14 @@ export function PaymentsTab() {
                                     </TableRow>
                                 ) : (
                                     filteredPayments.map((payment) => (
-                                        <TableRow key={payment.id}>
-                                            <TableCell className="font-mono text-sm">{payment.id}</TableCell>
+                                        <TableRow key={payment._id}>
+                                            <TableCell className="font-mono text-sm">
+                                                {payment._id.substring(0, 8)}...
+                                            </TableCell>
                                             <TableCell>
                                                 <div>
-                                                    <div className="font-medium">{payment.organizationName}</div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {payment.organizationId}
+                                                    <div className="font-medium">
+                                                        {payment.organizationId?.name || 'Unknown Org'}
                                                     </div>
                                                 </div>
                                             </TableCell>
@@ -229,7 +196,9 @@ export function PaymentsTab() {
                                                     {payment.tokens.toLocaleString()} tokens
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>{payment.paymentMethod}</TableCell>
+                                            <TableCell>
+                                                {payment.paymentMethodId?.name || payment.paymentMethod}
+                                            </TableCell>
                                             <TableCell>{getStatusBadge(payment.status)}</TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
                                                 {formatDate(payment.createdAt)}
@@ -254,7 +223,7 @@ export function PaymentsTab() {
                     {/* Summary */}
                     <div className="flex items-center justify-between pt-4 border-t">
                         <p className="text-sm text-muted-foreground">
-                            Showing {filteredPayments.length} of {mockPayments.length} transactions
+                            Showing {filteredPayments.length} of {payments.length} transactions
                         </p>
                         <div className="flex gap-4 text-sm">
                             <div>
@@ -270,8 +239,9 @@ export function PaymentsTab() {
                 </CardContent>
             </Card>
 
+            {/* Note: I might need to update the modal prop types too, but let's pass selectedPayment as any for now or let TypeScript infer if compatible */}
             <PaymentDetailsModal
-                payment={selectedPayment}
+                payment={selectedPayment as any}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
             />

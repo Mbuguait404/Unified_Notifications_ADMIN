@@ -9,21 +9,10 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Building2, CreditCard, Hash, Calendar, Phone, Package } from 'lucide-react'
+import { Transaction } from '@/services/transactions.service'
 
 interface PaymentDetailsModalProps {
-    payment: {
-        id: string
-        organizationId: string
-        organizationName: string
-        amount: number
-        tokens: number
-        paymentMethod: string
-        transactionRef: string
-        status: string
-        createdAt: string
-        package: string
-        phoneNumber: string
-    } | null
+    payment: Transaction | null
     isOpen: boolean
     onClose: () => void
 }
@@ -50,7 +39,7 @@ export function PaymentDetailsModal({ payment, isOpen, onClose }: PaymentDetails
     }
 
     const getStatusBadge = (status: string) => {
-        const variants: Record<string, { variant: any; label: string; color: string }> = {
+        const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string; color: string }> = {
             completed: { variant: 'default', label: 'Completed', color: 'text-green-500' },
             pending: { variant: 'secondary', label: 'Pending', color: 'text-yellow-500' },
             failed: { variant: 'destructive', label: 'Failed', color: 'text-red-500' },
@@ -63,6 +52,13 @@ export function PaymentDetailsModal({ payment, isOpen, onClose }: PaymentDetails
             </Badge>
         )
     }
+
+    // Helper to safely access nested properties
+    const orgName = payment.organizationId?.name || 'Unknown Organization'
+    const orgId = payment.organizationId?._id || 'N/A'
+    const paymentMethodName = payment.paymentMethodId?.name || payment.paymentMethod || 'Unknown'
+    const phoneNumber = (payment as any).metadata?.phoneNumber || 'N/A'
+    const transactionRef = payment.mpesaReference || 'N/A'
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -97,19 +93,19 @@ export function PaymentDetailsModal({ payment, isOpen, onClose }: PaymentDetails
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">Transaction ID</p>
-                                <p className="font-mono text-sm font-medium">{payment.id}</p>
+                                <p className="font-mono text-sm font-medium">{payment._id}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">M-Pesa Reference</p>
-                                <p className="font-mono text-sm font-medium">{payment.transactionRef}</p>
+                                <p className="font-mono text-sm font-medium">{transactionRef}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">Payment Method</p>
-                                <p className="font-medium">{payment.paymentMethod}</p>
+                                <p className="font-medium">{paymentMethodName}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">Phone Number</p>
-                                <p className="font-medium">{payment.phoneNumber}</p>
+                                <p className="font-medium">{phoneNumber}</p>
                             </div>
                         </div>
                     </div>
@@ -125,11 +121,11 @@ export function PaymentDetailsModal({ payment, isOpen, onClose }: PaymentDetails
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">Organization Name</p>
-                                <p className="font-medium">{payment.organizationName}</p>
+                                <p className="font-medium">{orgName}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">Organization ID</p>
-                                <p className="font-mono text-sm font-medium">{payment.organizationId}</p>
+                                <p className="font-mono text-sm font-medium">{orgId}</p>
                             </div>
                         </div>
                     </div>
@@ -144,8 +140,8 @@ export function PaymentDetailsModal({ payment, isOpen, onClose }: PaymentDetails
                         </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-sm text-muted-foreground mb-1">Package</p>
-                                <p className="font-medium">{payment.package}</p>
+                                <p className="text-sm text-muted-foreground mb-1">Description</p>
+                                <p className="font-medium">{payment.description || 'Token Purchase'}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground mb-1">Tokens Purchased</p>
@@ -182,7 +178,7 @@ export function PaymentDetailsModal({ payment, isOpen, onClose }: PaymentDetails
                                 <div className="flex items-center gap-2 text-sm">
                                     <div className="w-2 h-2 rounded-full bg-green-500" />
                                     <span className="text-muted-foreground">Completed:</span>
-                                    <span className="font-medium">{formatDate(payment.createdAt)}</span>
+                                    <span className="font-medium">{formatDate(payment.updatedAt || payment.createdAt)}</span>
                                 </div>
                             )}
                         </div>

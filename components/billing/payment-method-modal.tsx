@@ -23,23 +23,18 @@ import { Switch } from '@/components/ui/switch'
 import { Smartphone, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
+import {
+    paymentMethodsService,
+    PaymentMethod,
+    CreatePaymentMethodDto,
+    UpdatePaymentMethodDto,
+} from '@/services/payment-methods.service'
+
 interface PaymentMethodModalProps {
     isOpen: boolean
     onClose: () => void
-    method?: {
-        id: string
-        name: string
-        type: string
-        provider: string
-        shortcode: string
-        passkey: string
-        consumerKey: string
-        consumerSecret: string
-        environment: string
-        isDefault: boolean
-        isActive: boolean
-    } | null
-    onSave: (data: any) => void
+    method?: PaymentMethod | null
+    onSave: (data: CreatePaymentMethodDto | UpdatePaymentMethodDto) => void
 }
 
 export function PaymentMethodModal({

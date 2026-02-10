@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
     Table,
@@ -11,7 +11,6 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
     Select,
@@ -20,93 +19,60 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Search, MessageSquare, Mail, Phone, TrendingUp, TrendingDown } from 'lucide-react'
+import { Search, MessageSquare, Mail, Phone, Loader2 } from 'lucide-react'
+import { usageService, UsageStats, GlobalStats } from '@/services/usage.service'
+import { toast } from 'sonner'
 
-// Mock usage data
-const mockUsageData = [
-    {
-        organizationId: 'org-001',
-        organizationName: 'Acme Corporation',
-        totalTokens: 50000,
-        usedTokens: 32450,
-        smsCount: 15230,
-        emailCount: 8940,
-        whatsappCount: 8280,
-        lastActivity: '2024-02-10T10:30:00Z',
-        trend: 'up',
-        trendValue: '+12.5%',
-    },
-    {
-        organizationId: 'org-002',
-        organizationName: 'Tech Solutions Ltd',
-        totalTokens: 25000,
-        usedTokens: 18750,
-        smsCount: 8920,
-        emailCount: 5640,
-        whatsappCount: 4190,
-        lastActivity: '2024-02-10T09:15:00Z',
-        trend: 'up',
-        trendValue: '+8.3%',
-    },
-    {
-        organizationId: 'org-003',
-        organizationName: 'Global Enterprises',
-        totalTokens: 100000,
-        usedTokens: 45600,
-        smsCount: 21340,
-        emailCount: 15280,
-        whatsappCount: 8980,
-        lastActivity: '2024-02-10T08:45:00Z',
-        trend: 'down',
-        trendValue: '-3.2%',
-    },
-    {
-        organizationId: 'org-004',
-        organizationName: 'Innovation Hub',
-        totalTokens: 15000,
-        usedTokens: 12890,
-        smsCount: 6120,
-        emailCount: 4230,
-        whatsappCount: 2540,
-        lastActivity: '2024-02-09T16:20:00Z',
-        trend: 'up',
-        trendValue: '+15.7%',
-    },
-    {
-        organizationId: 'org-005',
-        organizationName: 'Digital Ventures',
-        totalTokens: 75000,
-        usedTokens: 23450,
-        smsCount: 11230,
-        emailCount: 7840,
-        whatsappCount: 4380,
-        lastActivity: '2024-02-09T14:10:00Z',
-        trend: 'up',
-        trendValue: '+5.1%',
-    },
-]
 
 export function UsageTab() {
+    const [usageData, setUsageData] = useState<UsageStats[]>([])
+    const [globalStats, setGlobalStats] = useState<GlobalStats>({ smsCount: 0, emailCount: 0, whatsappCount: 0 })
+    const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [sortBy, setSortBy] = useState('usage')
 
-    const filteredData = mockUsageData
+    const fetchData = async () => {
+        try {
+            setLoading(true)
+            const [usage, global] = await Promise.all([
+                usageService.getAllUsage(),
+                usageService.getGlobalStats()
+            ])
+            setUsageData(usage)
+            setGlobalStats(global)
+        } catch (error) {
+            console.error('Failed to fetch usage data:', error)
+            toast.error('Failed to load usage statistics')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchData()
+    }, [])
+
+    const filteredData = usageData
         .filter((org) =>
             org.organizationName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             org.organizationId.toLowerCase().includes(searchQuery.toLowerCase())
         )
         .sort((a, b) => {
+            const totalA = a.remainingCredits + a.usedTokens
+            const totalB = b.remainingCredits + b.usedTokens
+
             if (sortBy === 'usage') {
                 return b.usedTokens - a.usedTokens
             } else if (sortBy === 'remaining') {
-                return (b.totalTokens - b.usedTokens) - (a.totalTokens - a.usedTokens)
+                return b.remainingCredits - a.remainingCredits
             } else if (sortBy === 'name') {
                 return a.organizationName.localeCompare(b.organizationName)
             }
             return 0
         })
 
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString: string | null) => {
+        if (!dateString) return 'Never'
         return new Date(dateString).toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -115,27 +81,31 @@ export function UsageTab() {
         })
     }
 
-    const calculateUsagePercentage = (used: number, total: number) => {
+    const calculateUsagePercentage = (used: number, remaining: number) => {
+        const total = used + remaining
+        if (total === 0) return 0
         return Math.round((used / total) * 100)
     }
 
     const getUsageColor = (percentage: number) => {
+        if (percentage >= 90) return 'text-red-500' // High usage (almost depleted?) Wait, used/total. 90% used means little remaining.
+        // If 'used' is what we track, high usage is actually good (activity).
+        // But usually 'usage' bars warn when 'remaining' is low.
+        // If the bar represents 'Quota Used', then 100% is bad (no quota left).
+        // Here we have 'usedTokens' and 'remainingCredits'.
+        // A high percentage means they have used most of their tokens.
         if (percentage >= 90) return 'text-red-500'
         if (percentage >= 70) return 'text-yellow-500'
         return 'text-green-500'
     }
 
-    // Calculate totals
-    const totals = mockUsageData.reduce(
-        (acc, org) => ({
-            totalTokens: acc.totalTokens + org.totalTokens,
-            usedTokens: acc.usedTokens + org.usedTokens,
-            smsCount: acc.smsCount + org.smsCount,
-            emailCount: acc.emailCount + org.emailCount,
-            whatsappCount: acc.whatsappCount + org.whatsappCount,
-        }),
-        { totalTokens: 0, usedTokens: 0, smsCount: 0, emailCount: 0, whatsappCount: 0 }
-    )
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -149,7 +119,7 @@ export function UsageTab() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total SMS Sent</p>
-                                <p className="text-2xl font-bold">{totals.smsCount.toLocaleString()}</p>
+                                <p className="text-2xl font-bold">{globalStats.smsCount.toLocaleString()}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -163,7 +133,7 @@ export function UsageTab() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Emails Sent</p>
-                                <p className="text-2xl font-bold">{totals.emailCount.toLocaleString()}</p>
+                                <p className="text-2xl font-bold">{globalStats.emailCount.toLocaleString()}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -177,7 +147,7 @@ export function UsageTab() {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Total WhatsApp Sent</p>
-                                <p className="text-2xl font-bold">{totals.whatsappCount.toLocaleString()}</p>
+                                <p className="text-2xl font-bold">{globalStats.whatsappCount.toLocaleString()}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -228,14 +198,13 @@ export function UsageTab() {
                                     <TableHead>SMS</TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>WhatsApp</TableHead>
-                                    <TableHead>Trend</TableHead>
                                     <TableHead>Last Activity</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredData.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-10">
+                                        <TableCell colSpan={6} className="text-center py-10">
                                             No organizations found.
                                         </TableCell>
                                     </TableRow>
@@ -243,7 +212,7 @@ export function UsageTab() {
                                     filteredData.map((org) => {
                                         const usagePercentage = calculateUsagePercentage(
                                             org.usedTokens,
-                                            org.totalTokens
+                                            org.remainingCredits
                                         )
                                         return (
                                             <TableRow key={org.organizationId}>
@@ -251,54 +220,35 @@ export function UsageTab() {
                                                     <div>
                                                         <div className="font-medium">{org.organizationName}</div>
                                                         <div className="text-xs text-muted-foreground">
-                                                            {org.organizationId}
+                                                            ID: {org.organizationId}
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="space-y-2 min-w-[200px]">
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <span className="font-medium">
-                                                                {org.usedTokens.toLocaleString()} /{' '}
-                                                                {org.totalTokens.toLocaleString()}
+                                                <TableCell className="w-[200px]">
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between text-xs">
+                                                            <span>{org.usedTokens.toLocaleString()} used</span>
+                                                            <span className="text-muted-foreground">
+                                                                {org.remainingCredits.toLocaleString()} left
                                                             </span>
+                                                        </div>
+                                                        <Progress
+                                                            value={usagePercentage}
+                                                            className="h-2"
+                                                        // Indicator className logic if supported, or rely on root color
+                                                        // Progress component usually takes `className` for the root
+                                                        // indicatorClassName for inner bar
+                                                        />
+                                                        <div className="flex justify-between text-xs">
                                                             <span className={getUsageColor(usagePercentage)}>
-                                                                {usagePercentage}%
+                                                                {usagePercentage}% Used
                                                             </span>
                                                         </div>
-                                                        <Progress value={usagePercentage} className="h-2" />
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="font-mono">
-                                                        {org.smsCount.toLocaleString()}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="font-mono">
-                                                        {org.emailCount.toLocaleString()}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="font-mono">
-                                                        {org.whatsappCount.toLocaleString()}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1">
-                                                        {org.trend === 'up' ? (
-                                                            <TrendingUp className="w-4 h-4 text-green-500" />
-                                                        ) : (
-                                                            <TrendingDown className="w-4 h-4 text-red-500" />
-                                                        )}
-                                                        <span
-                                                            className={`text-sm font-medium ${org.trend === 'up' ? 'text-green-500' : 'text-red-500'
-                                                                }`}
-                                                        >
-                                                            {org.trendValue}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
+                                                <TableCell>{org.smsCount.toLocaleString()}</TableCell>
+                                                <TableCell>{org.emailCount.toLocaleString()}</TableCell>
+                                                <TableCell>{org.whatsappCount.toLocaleString()}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">
                                                     {formatDate(org.lastActivity)}
                                                 </TableCell>
@@ -308,27 +258,6 @@ export function UsageTab() {
                                 )}
                             </TableBody>
                         </Table>
-                    </div>
-
-                    {/* Summary */}
-                    <div className="flex items-center justify-between pt-4 border-t">
-                        <p className="text-sm text-muted-foreground">
-                            Showing {filteredData.length} of {mockUsageData.length} organizations
-                        </p>
-                        <div className="flex gap-4 text-sm">
-                            <div>
-                                <span className="text-muted-foreground">Total Used: </span>
-                                <span className="font-semibold">
-                                    {totals.usedTokens.toLocaleString()} tokens
-                                </span>
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground">Total Available: </span>
-                                <span className="font-semibold">
-                                    {totals.totalTokens.toLocaleString()} tokens
-                                </span>
-                            </div>
-                        </div>
                     </div>
                 </CardContent>
             </Card>
