@@ -8,48 +8,29 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, LayoutDashboard, Eye, EyeOff } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
 
 export default function LoginPage() {
     const router = useRouter()
+    const { login } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
         setIsLoading(true)
+        setError(null)
 
         const formData = new FormData(event.currentTarget);
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3040';
-            const res = await fetch(`${apiUrl}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
-
-            if (!res.ok) {
-                throw new Error('Invalid credentials');
-            }
-
-            const data = await res.json();
-
-            // Store token in cookie
-            // In production, consider using httpOnly cookies via a backend proxy or Next.js API route
-            document.cookie = `token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
-            // Also set the legacy mock cookie just in case logic depends on it, but prefer 'token'
-            document.cookie = `admin_session=true; path=/; max-age=86400; SameSite=Lax`;
-
-            // Store user data in localStorage
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            router.push('/');
-            router.refresh();
-
+            await login({ email, password });
+            // Redirect happens in AuthContext.handleLogin
         } catch (error) {
-            alert('Login failed: ' + (error as Error).message);
+            setError((error as Error).message);
         } finally {
             setIsLoading(false)
         }
@@ -117,6 +98,8 @@ export default function LoginPage() {
                                         </div>
                                     </div>
 
+                                    {error && <p className="text-sm text-destructive font-medium">{error}</p>}
+
                                     <Button type="submit" className="w-full" disabled={isLoading}>
                                         {isLoading ? (
                                             <>
@@ -133,7 +116,7 @@ export default function LoginPage() {
                     </Card>
                     <div className="mt-4 text-center text-sm">
                         <p className="text-muted-foreground">
-                            Protected Area using mock auth
+                            Protected Area
                         </p>
                     </div>
                 </div>
@@ -151,3 +134,4 @@ export default function LoginPage() {
         </div>
     )
 }
+

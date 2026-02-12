@@ -12,6 +12,20 @@ interface FetchOptions extends RequestInit {
     headers?: Record<string, string>;
 }
 
+const handleResponse = async (response: Response) => {
+    if (response.status === 401) {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('admin-auth-unauthorized'));
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+    }
+
+    return response.json();
+};
+
 export const api = {
     get: async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
         const token = getAuthToken();
@@ -27,11 +41,7 @@ export const api = {
             headers,
         });
 
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
-        }
-
-        return response.json();
+        return handleResponse(response);
     },
 
     post: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
@@ -49,11 +59,7 @@ export const api = {
             headers,
         });
 
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
-        }
-
-        return response.json();
+        return handleResponse(response);
     },
 
     patch: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
@@ -71,11 +77,7 @@ export const api = {
             headers,
         });
 
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
-        }
-
-        return response.json();
+        return handleResponse(response);
     },
 
     put: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
@@ -93,10 +95,7 @@ export const api = {
             headers,
         });
 
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.statusText}`);
-        }
-
-        return response.json();
+        return handleResponse(response);
     },
 };
+
