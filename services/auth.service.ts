@@ -32,8 +32,11 @@ export const authService = {
         document.cookie = `token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
         document.cookie = `admin_session=true; path=/; max-age=86400; SameSite=Lax`;
 
-        // Store user data in localStorage
+        // Store user data and token expiry in localStorage
         localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.expiresAt) {
+            localStorage.setItem('tokenExpiresAt', data.expiresAt);
+        }
 
         return data;
     },
@@ -53,5 +56,6 @@ export const authService = {
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
         document.cookie = 'admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
         localStorage.removeItem('user');
+        localStorage.removeItem('tokenExpiresAt');
     }
 };
