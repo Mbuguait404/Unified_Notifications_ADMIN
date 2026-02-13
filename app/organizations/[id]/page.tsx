@@ -37,31 +37,33 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
     const [credentialsForm, setCredentialsForm] = useState<any | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
-
-    // Mock stats - will be made dynamic later
-    const stats = {
-        totalUsers: 24,
-        totalContacts: 3456,
-        totalGroups: 89,
+    const [stats, setStats] = useState({
+        totalUsers: 0,
+        totalContacts: 0,
+        totalGroups: 0,
         messagesSent: {
-            email: 1243,
-            sms: 856,
-            whatsapp: 2103,
+            email: 0,
+            sms: 0,
+            whatsapp: 0,
         },
-        tokensSpent: 45678,
-    }
-
-    const adminDetails = {
-        name: 'John Doe',
-        email: 'john.doe@organization.com',
-        phone: '+1 234 567 8900',
-    }
+        creditsSpent: 0,
+    })
+    const [adminDetails, setAdminDetails] = useState({
+        name: 'N/A',
+        email: 'N/A',
+        phone: 'N/A',
+    })
 
     useEffect(() => {
         async function fetchOrg() {
             try {
                 setIsLoading(true)
-                const org = await organizationService.getOrganizationById(id)
+                // Fetch organization details and stats in parallel
+                const [org, statsData] = await Promise.all([
+                    organizationService.getOrganizationById(id),
+                    organizationService.getOrganizationStats(id),
+                ])
+                
                 setSelectedOrg({
                     ...org,
                     id: org._id,
@@ -70,6 +72,22 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                     createdAtRaw: org.createdAt,
                 })
                 setCredentialsForm(org.credentials ?? {})
+                
+                // Set real stats
+                setStats({
+                    totalUsers: statsData.stats.totalUsers,
+                    totalContacts: statsData.stats.totalContacts,
+                    totalGroups: statsData.stats.totalGroups,
+                    messagesSent: {
+                        email: statsData.stats.messagesSent.email,
+                        sms: statsData.stats.messagesSent.sms,
+                        whatsapp: statsData.stats.messagesSent.whatsapp,
+                    },
+                    creditsSpent: statsData.stats.creditsSpent,
+                })
+                
+                // Set real admin details
+                setAdminDetails(statsData.adminDetails)
             } catch (err) {
                 console.error('Failed to fetch organization:', err)
                 toast.error('Failed to load organization details')
@@ -327,8 +345,8 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm font-semibold text-muted-foreground mb-1">Tokens Spent</p>
-                                        <p className="text-base font-medium">{stats.tokensSpent.toLocaleString()}</p>
+                                        <p className="text-sm font-semibold text-muted-foreground mb-1">Credits Spent</p>
+                                        <p className="text-base font-medium">{stats.creditsSpent.toLocaleString()}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-muted-foreground mb-1">Created</p>

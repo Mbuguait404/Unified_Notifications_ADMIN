@@ -55,4 +55,34 @@ export const organizationService = {
         // Reuse the public signup flow which also provisions an organization
         return api.post('/auth/signup', payload);
     },
+
+    // Get organization stats with detailed information
+    getOrganizationStats: async (id: string): Promise<{
+        organization: Organization & {
+            sector?: string;
+            country?: string;
+            credits?: number;
+            emailFromName?: string | null;
+            updatedAt?: string;
+            credentials?: any;
+        };
+        stats: {
+            totalUsers: number;
+            totalContacts: number;
+            totalGroups: number;
+            messagesSent: {
+                whatsapp: number;
+                email: number;
+                sms: number;
+            };
+            creditsSpent: number;
+        };
+        adminDetails: {
+            name: string;
+            email: string;
+            phone: string;
+        };
+    }> => {
+        return api.get(`/organizations/${id}/stats`);
+    },
 };
