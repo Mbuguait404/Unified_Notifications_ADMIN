@@ -26,9 +26,26 @@ import {
     Loader2,
     CreditCard
 } from 'lucide-react'
+import { MoreVertical, Trash, Printer, ShieldAlert } from 'lucide-react'
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { format } from 'date-fns'
 import { organizationService } from '@/services/organizations.service'
 import { toast } from 'sonner'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog'
 
 export default function OrganizationDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
@@ -53,6 +70,47 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
         email: 'N/A',
         phone: 'N/A',
     })
+
+    const [confirmSuspend, setConfirmSuspend] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
+
+    async function performSuspend() {
+        const nextStatus = selectedOrg.status === 'Suspended' ? 'Active' : 'Suspended'
+        try {
+            if (nextStatus === 'Suspended') {
+                await organizationService.suspendOrganization(selectedOrg.id)
+            } else {
+                await organizationService.unsuspendOrganization(selectedOrg.id)
+            }
+            setSelectedOrg((prev: any) => ({ ...prev, status: nextStatus }))
+            toast.success(`Organization ${nextStatus === 'Active' ? 'unsuspended' : 'suspended'}`)
+            setConfirmSuspend(false)
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to update status')
+        }
+    }
+
+    async function performSoftDelete() {
+        try {
+            await organizationService.softDeleteOrganization(selectedOrg.id)
+            setSelectedOrg((prev: any) => ({ ...prev, status: 'Deleted', isDeleted: true }))
+            toast.success('Organization deleted')
+            setConfirmDelete(false)
+            router.push('/organizations')
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to delete organization')
+        }
+    }
+
+    function handlePrint() {
+        const w = window.open('', '_blank')
+        if (!w) return
+        w.document.write(`<h1>Organization: ${selectedOrg?.name}</h1><pre>${JSON.stringify(selectedOrg, null, 2)}</pre>`)
+        w.document.close()
+        w.print()
+    }
 
     useEffect(() => {
         async function fetchOrg() {
@@ -288,9 +346,63 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                                 <CreditCard className="w-5 h-5" />
                                 View Transactions
                             </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handlePrint}>
+                                        <Printer className="mr-2 h-4 w-4" /> Print details
+                                    </DropdownMenuItem>
+                                    {selectedOrg.status === 'Suspended' ? (
+                                        <DropdownMenuItem onClick={() => setConfirmSuspend(true)} className="text-green-600">
+                                            <ShieldCheck className="mr-2 h-4 w-4" /> Unsuspend
+                                        </DropdownMenuItem>
+                                    ) : (
+                                        <DropdownMenuItem onClick={() => setConfirmSuspend(true)} className="text-red-600">
+                                            <ShieldAlert className="mr-2 h-4 w-4" /> Suspend
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => setConfirmDelete(true)} className="text-red-600">
+                                        <Trash className="mr-2 h-4 w-4" /> Delete (soft)
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                 </div>
+
+                {/* Confirm Suspend Dialog */}
+                <Dialog open={confirmSuspend} onOpenChange={(open) => !open && setConfirmSuspend(false)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{selectedOrg?.status === 'Suspended' ? 'Unsuspend Organization' : 'Suspend Organization'}</DialogTitle>
+                            <DialogDescription>Are you sure you want to {selectedOrg?.status === 'Suspended' ? 'unsuspend' : 'suspend'} "{selectedOrg?.name}"?</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex gap-2">
+                            <Button variant="outline" onClick={() => setConfirmSuspend(false)}>Cancel</Button>
+                            <Button onClick={performSuspend}>Confirm</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Confirm Delete Dialog */}
+                <Dialog open={confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(false)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Organization</DialogTitle>
+                            <DialogDescription>This will soft-delete the organization "{selectedOrg?.name}". Are you sure?</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex gap-2">
+                            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                            <Button className="bg-red-600" onClick={performSoftDelete}>Delete</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="max-w-8xl mx-auto flex flex-col lg:flex-row min-h-full">
                     {/* Left Sidebar */}

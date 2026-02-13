@@ -40,6 +40,18 @@ export const organizationService = {
         return api.patch(`/organizations/${id}/credentials`, { credentials });
     },
 
+    suspendOrganization: async (id: string) => {
+        return api.patch(`/organizations/${id}/suspend`, {});
+    },
+
+    unsuspendOrganization: async (id: string) => {
+        return api.patch(`/organizations/${id}/unsuspend`, {});
+    },
+
+    softDeleteOrganization: async (id: string) => {
+        return api.patch(`/organizations/${id}/soft-delete`, {});
+    },
+
     // Super admin: create a new organization + primary admin user
     createOrganization: async (payload: {
         firstName: string;
