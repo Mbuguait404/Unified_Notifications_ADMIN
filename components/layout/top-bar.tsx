@@ -1,10 +1,21 @@
 'use client'
 
-import { Search, Bell, Settings } from 'lucide-react'
+import { Search, Bell, Settings, Moon, Sun } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useTheme } from 'next-themes'
+import { useEffect, useState } from 'react'
 
 export function TopBar() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
   return (
     <header className="h-16 border-b border-border bg-card sticky top-0 z-40">
       <div className="h-full px-8 flex items-center justify-between gap-4">
@@ -24,6 +35,13 @@ export function TopBar() {
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>
           <Button variant="ghost" size="icon">
             <Settings className="w-5 h-5" />
