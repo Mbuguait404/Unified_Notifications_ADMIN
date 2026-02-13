@@ -27,6 +27,24 @@ import {
   Loader2,
   Edit,
 } from 'lucide-react'
+import { Trash, Printer, ShieldAlert, ShieldCheck } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { useRouter } from 'next/navigation'
 import { organizationService, Organization } from '@/services/organizations.service'
 import { format } from 'date-fns'
@@ -41,6 +59,8 @@ export default function OrganizationsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [confirmDeleteOrg, setConfirmDeleteOrg] = useState<any | null>(null)
+  const [confirmSuspendOrg, setConfirmSuspendOrg] = useState<any | null>(null)
 
   async function fetchOrganizations() {
     try {
@@ -97,6 +117,29 @@ export default function OrganizationsPage() {
 
   function handleOpenDetails(org: any) {
     router.push(`/organizations/${org.id}`)
+  }
+
+  async function handleSuspend(org: any) {
+    // open confirm dialog
+    setConfirmSuspendOrg(org)
+  }
+
+  async function handleUnsuspend(org: any) {
+    // open confirm dialog (same as suspend flow)
+    setConfirmSuspendOrg(org)
+  }
+
+  async function handleSoftDelete(org: any) {
+    setConfirmDeleteOrg(org)
+  }
+
+  function handlePrint(org: any) {
+    // Simple print: open a new window with basic details
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(`<h1>Organization: ${org.name}</h1><pre>${JSON.stringify(org, null, 2)}</pre>`)
+    w.document.close()
+    w.print()
   }
 
   function handleToggleSuspend(orgId: string, currentStatus: string) {
@@ -279,9 +322,36 @@ export default function OrganizationsPage() {
                               <Edit className="w-3 h-3" />
                               View / Edit
                             </Button>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleOpenDetails(org)}>
+                                  <Edit className="mr-2 h-4 w-4" /> View / Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePrint(org)}>
+                                  <Printer className="mr-2 h-4 w-4" /> Print details
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {org.status === 'Suspended' ? (
+                                  <DropdownMenuItem className="text-green-600" onClick={() => setConfirmSuspendOrg(org)}>
+                                    <ShieldCheck className="mr-2 h-4 w-4" /> Unsuspend
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem className="text-red-600" onClick={() => setConfirmSuspendOrg(org)}>
+                                    <ShieldAlert className="mr-2 h-4 w-4" /> Suspend
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem className="text-red-600" onClick={() => setConfirmDeleteOrg(org)}>
+                                  <Trash className="mr-2 h-4 w-4" /> Delete (soft)
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </td>
                       </tr>
@@ -309,6 +379,69 @@ export default function OrganizationsPage() {
           onCreated={fetchOrganizations}
         />
 
+        {/* Confirm Suspend/Unsuspend Dialog */}
+        <Dialog open={!!confirmSuspendOrg} onOpenChange={(open) => !open && setConfirmSuspendOrg(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{confirmSuspendOrg?.status === 'Suspended' ? 'Unsuspend Organization' : 'Suspend Organization'}</DialogTitle>
+              <DialogDescription>Are you sure you want to {confirmSuspendOrg?.status === 'Suspended' ? 'unsuspend' : 'suspend'} "{confirmSuspendOrg?.name}"?</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmSuspendOrg(null)}>Cancel</Button>
+              <Button
+                onClick={async () => {
+                  if (!confirmSuspendOrg) return
+                  try {
+                    if (confirmSuspendOrg.status === 'Suspended') {
+                      await organizationService.unsuspendOrganization(confirmSuspendOrg.id)
+                      toast.success('Organization unsuspended')
+                    } else {
+                      await organizationService.suspendOrganization(confirmSuspendOrg.id)
+                      toast.success('Organization suspended')
+                    }
+                    setConfirmSuspendOrg(null)
+                    fetchOrganizations()
+                  } catch (err) {
+                    console.error(err)
+                    toast.error('Failed to update status')
+                  }
+                }}
+              >
+                Confirm
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirm Delete Dialog */}
+        <Dialog open={!!confirmDeleteOrg} onOpenChange={(open) => !open && setConfirmDeleteOrg(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Organization</DialogTitle>
+              <DialogDescription>This will soft-delete the organization "{confirmDeleteOrg?.name}". This action can be reversed by an admin. Are you sure?</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteOrg(null)}>Cancel</Button>
+              <Button
+                className="bg-red-600"
+                onClick={async () => {
+                  if (!confirmDeleteOrg) return
+                  try {
+                    await organizationService.softDeleteOrganization(confirmDeleteOrg.id)
+                    toast.success('Organization deleted')
+                    setConfirmDeleteOrg(null)
+                    fetchOrganizations()
+                  } catch (err) {
+                    console.error(err)
+                    toast.error('Failed to delete organization')
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )

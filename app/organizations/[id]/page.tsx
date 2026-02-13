@@ -26,9 +26,29 @@ import {
     Loader2,
     CreditCard
 } from 'lucide-react'
+import { Key, Plus } from 'lucide-react'
+import { MoreVertical, Trash, Printer, ShieldAlert } from 'lucide-react'
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { format } from 'date-fns'
 import { organizationService } from '@/services/organizations.service'
+import { api } from '@/services/api'
 import { toast } from 'sonner'
+import { useAuth } from '@/context/AuthContext'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog'
 
 export default function OrganizationDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
@@ -37,31 +57,82 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
     const [credentialsForm, setCredentialsForm] = useState<any | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
-
-    // Mock stats - will be made dynamic later
-    const stats = {
-        totalUsers: 24,
-        totalContacts: 3456,
-        totalGroups: 89,
+    const [stats, setStats] = useState({
+        totalUsers: 0,
+        totalContacts: 0,
+        totalGroups: 0,
         messagesSent: {
-            email: 1243,
-            sms: 856,
-            whatsapp: 2103,
+            email: 0,
+            sms: 0,
+            whatsapp: 0,
         },
-        tokensSpent: 45678,
+        creditsSpent: 0,
+    })
+    const [adminDetails, setAdminDetails] = useState({
+        name: 'N/A',
+        email: 'N/A',
+        phone: 'N/A',
+    })
+
+    const [confirmSuspend, setConfirmSuspend] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
+    const { user } = useAuth()
+
+    // API Keys state
+    const [apiKeys, setApiKeys] = useState<any[]>([])
+    const [isLoadingApiKeys, setIsLoadingApiKeys] = useState(false)
+    const [showCreateKeyDialog, setShowCreateKeyDialog] = useState(false)
+    const [newKeyName, setNewKeyName] = useState('')
+    const [createdPlainKey, setCreatedPlainKey] = useState<string | null>(null)
+
+    async function performSuspend() {
+        const nextStatus = selectedOrg.status === 'Suspended' ? 'Active' : 'Suspended'
+        try {
+            if (nextStatus === 'Suspended') {
+                await organizationService.suspendOrganization(selectedOrg.id)
+            } else {
+                await organizationService.unsuspendOrganization(selectedOrg.id)
+            }
+            setSelectedOrg((prev: any) => ({ ...prev, status: nextStatus }))
+            toast.success(`Organization ${nextStatus === 'Active' ? 'unsuspended' : 'suspended'}`)
+            setConfirmSuspend(false)
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to update status')
+        }
     }
 
-    const adminDetails = {
-        name: 'John Doe',
-        email: 'john.doe@organization.com',
-        phone: '+1 234 567 8900',
+    async function performSoftDelete() {
+        try {
+            await organizationService.softDeleteOrganization(selectedOrg.id)
+            setSelectedOrg((prev: any) => ({ ...prev, status: 'Deleted', isDeleted: true }))
+            toast.success('Organization deleted')
+            setConfirmDelete(false)
+            router.push('/organizations')
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to delete organization')
+        }
+    }
+
+    function handlePrint() {
+        const w = window.open('', '_blank')
+        if (!w) return
+        w.document.write(`<h1>Organization: ${selectedOrg?.name}</h1><pre>${JSON.stringify(selectedOrg, null, 2)}</pre>`)
+        w.document.close()
+        w.print()
     }
 
     useEffect(() => {
         async function fetchOrg() {
             try {
                 setIsLoading(true)
-                const org = await organizationService.getOrganizationById(id)
+                // Fetch organization details and stats in parallel
+                const [org, statsData] = await Promise.all([
+                    organizationService.getOrganizationById(id),
+                    organizationService.getOrganizationStats(id),
+                ])
+                
                 setSelectedOrg({
                     ...org,
                     id: org._id,
@@ -70,6 +141,28 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                     createdAtRaw: org.createdAt,
                 })
                 setCredentialsForm(org.credentials ?? {})
+                
+                // Set real stats
+                setStats({
+                    totalUsers: statsData.stats.totalUsers,
+                    totalContacts: statsData.stats.totalContacts,
+                    totalGroups: statsData.stats.totalGroups,
+                    messagesSent: {
+                        email: statsData.stats.messagesSent.email,
+                        sms: statsData.stats.messagesSent.sms,
+                        whatsapp: statsData.stats.messagesSent.whatsapp,
+                    },
+                    creditsSpent: statsData.stats.creditsSpent,
+                })
+                
+                // Set real admin details
+                setAdminDetails(statsData.adminDetails)
+                // Fetch API keys for the organization (if permitted)
+                try {
+                    await fetchApiKeys(org._id)
+                } catch (err) {
+                    // ignore - keys may not be available to this user
+                }
             } catch (err) {
                 console.error('Failed to fetch organization:', err)
                 toast.error('Failed to load organization details')
@@ -80,6 +173,76 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
         }
         fetchOrg()
     }, [id, router])
+
+    async function fetchApiKeys(orgId: string) {
+        try {
+            setIsLoadingApiKeys(true)
+            const data = await api.get<any[]>(`/api-keys?orgId=${orgId}`)
+            setApiKeys(data)
+        } catch (err) {
+            console.error('Failed to load API keys', err)
+        } finally {
+            setIsLoadingApiKeys(false)
+        }
+    }
+
+    const handleCreateApiKey = async () => {
+        if (!newKeyName) return toast.error('Provide a name for the key')
+        try {
+            setIsSaving(true)
+            const data = await api.post<any>('/api-keys', { 
+                name: newKeyName,
+                organization: selectedOrg.id 
+            })
+            // API returns plaintext key once
+            setCreatedPlainKey(data.key)
+            setApiKeys((prev) => [
+                { _id: data.id, name: data.name, prefix: data.prefix, createdAt: new Date().toISOString(), isActive: true, createdBy: { firstName: user?.firstName || '', lastName: user?.lastName || '' } },
+                ...prev,
+            ])
+            setShowCreateKeyDialog(false)
+            setNewKeyName('')
+            toast.success('API key created — copy the plaintext value below')
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to create API key')
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleRevoke = async (keyId: string) => {
+        try {
+            await api.put<any>(`/api-keys/${keyId}/revoke?orgId=${selectedOrg.id}`, {})
+            setApiKeys((prev) => prev.map(k => k._id === keyId ? { ...k, isActive: false } : k))
+            toast.success('API key revoked')
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to revoke key')
+        }
+    }
+
+    const handleActivate = async (keyId: string) => {
+        try {
+            await api.put<any>(`/api-keys/${keyId}/activate?orgId=${selectedOrg.id}`, {})
+            setApiKeys((prev) => prev.map(k => k._id === keyId ? { ...k, isActive: true } : k))
+            toast.success('API key activated')
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to activate key')
+        }
+    }
+
+    const handleDeleteKey = async (keyId: string) => {
+        try {
+            await api.delete<any>(`/api-keys/${keyId}?orgId=${selectedOrg.id}`)
+            setApiKeys((prev) => prev.filter(k => k._id !== keyId))
+            toast.success('API key deleted')
+        } catch (err) {
+            console.error(err)
+            toast.error('Failed to delete key')
+        }
+    }
 
     function getRandomColor(name: string) {
         const colors = ['bg-purple-500', 'bg-pink-500', 'bg-red-500', 'bg-orange-500', 'bg-blue-500', 'bg-green-500']
@@ -270,9 +433,63 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                                 <CreditCard className="w-5 h-5" />
                                 View Transactions
                             </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handlePrint}>
+                                        <Printer className="mr-2 h-4 w-4" /> Print details
+                                    </DropdownMenuItem>
+                                    {selectedOrg.status === 'Suspended' ? (
+                                        <DropdownMenuItem onClick={() => setConfirmSuspend(true)} className="text-green-600">
+                                            <ShieldCheck className="mr-2 h-4 w-4" /> Unsuspend
+                                        </DropdownMenuItem>
+                                    ) : (
+                                        <DropdownMenuItem onClick={() => setConfirmSuspend(true)} className="text-red-600">
+                                            <ShieldAlert className="mr-2 h-4 w-4" /> Suspend
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => setConfirmDelete(true)} className="text-red-600">
+                                        <Trash className="mr-2 h-4 w-4" /> Delete (soft)
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                 </div>
+
+                {/* Confirm Suspend Dialog */}
+                <Dialog open={confirmSuspend} onOpenChange={(open) => !open && setConfirmSuspend(false)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{selectedOrg?.status === 'Suspended' ? 'Unsuspend Organization' : 'Suspend Organization'}</DialogTitle>
+                            <DialogDescription>Are you sure you want to {selectedOrg?.status === 'Suspended' ? 'unsuspend' : 'suspend'} "{selectedOrg?.name}"?</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex gap-2">
+                            <Button variant="outline" onClick={() => setConfirmSuspend(false)}>Cancel</Button>
+                            <Button onClick={performSuspend}>Confirm</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Confirm Delete Dialog */}
+                <Dialog open={confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(false)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Organization</DialogTitle>
+                            <DialogDescription>This will soft-delete the organization "{selectedOrg?.name}". Are you sure?</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex gap-2">
+                            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                            <Button className="bg-red-600" onClick={performSoftDelete}>Delete</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="max-w-8xl mx-auto flex flex-col lg:flex-row min-h-full">
                     {/* Left Sidebar */}
@@ -327,8 +544,8 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm font-semibold text-muted-foreground mb-1">Tokens Spent</p>
-                                        <p className="text-base font-medium">{stats.tokensSpent.toLocaleString()}</p>
+                                        <p className="text-sm font-semibold text-muted-foreground mb-1">Credits Spent</p>
+                                        <p className="text-base font-medium">{stats.creditsSpent.toLocaleString()}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-muted-foreground mb-1">Created</p>
@@ -439,13 +656,18 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
 
                             {/* Tabs */}
                             <Tabs defaultValue="details" className="space-y-6">
-                                <TabsList className="grid w-full grid-cols-2 h-14 bg-muted/50 p-1">
+                                <TabsList className="grid w-full grid-cols-3 h-14 bg-muted/50 p-1">
                                     <TabsTrigger value="details" className="text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
                                         Organization Details
                                     </TabsTrigger>
                                     <TabsTrigger value="credentials" className="text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
                                         Credentials
                                     </TabsTrigger>
+                                    {user && (user.role === 'admin' || user.role === 'superadmin') && (
+                                        <TabsTrigger value="apiKeys" className="text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                            API Keys
+                                        </TabsTrigger>
+                                    )}
                                 </TabsList>
 
                                 <TabsContent value="details" className="space-y-6 outline-none">
@@ -695,6 +917,107 @@ export default function OrganizationDetailsPage({ params }: { params: Promise<{ 
                                         </Button>
                                     </div>
                                 </TabsContent>
+
+                                {user && (user.role === 'admin' || user.role === 'superadmin') && (
+                                    <TabsContent value="apiKeys" className="space-y-6 outline-none">
+                                        <Card className="border-2 shadow-sm">
+                                            <CardHeader className="flex items-center justify-between pb-6">
+                                                <div className="flex items-center gap-3">
+                                                    <Key className="w-6 h-6" />
+                                                    <CardTitle className="text-2xl">API Keys</CardTitle>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-sm text-muted-foreground mr-4">Total: {apiKeys.length}</div>
+                                                    <Button size="sm" onClick={() => setShowCreateKeyDialog(true)}>
+                                                        <Plus className="w-4 h-4 mr-2" /> Create key
+                                                    </Button>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                {isLoadingApiKeys ? (
+                                                    <div className="p-6">Loading...</div>
+                                                ) : apiKeys.length === 0 ? (
+                                                    <div className="p-6 text-sm text-muted-foreground">No API keys found for this organization.</div>
+                                                ) : (
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-left">
+                                                            <thead className="text-sm text-muted-foreground">
+                                                                <tr>
+                                                                    <th className="py-2">Name</th>
+                                                                    <th className="py-2">Prefix</th>
+                                                                    <th className="py-2">Created by</th>
+                                                                    <th className="py-2">Created</th>
+                                                                    <th className="py-2">Last used</th>
+                                                                    <th className="py-2">Status</th>
+                                                                    <th className="py-2">Actions</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {apiKeys.map((k) => (
+                                                                    <tr key={k._id} className="border-t">
+                                                                        <td className="py-3">{k.name}</td>
+                                                                        <td className="py-3">{k.prefix}</td>
+                                                                        <td className="py-3">{k.createdBy ? `${k.createdBy.firstName} ${k.createdBy.lastName}` : '—'}</td>
+                                                                        <td className="py-3">{k.createdAt ? new Date(k.createdAt).toLocaleString() : '—'}</td>
+                                                                        <td className="py-3">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '—'}</td>
+                                                                        <td className="py-3">{k.isActive ? <Badge className="bg-green-100 text-green-700">Active</Badge> : <Badge className="bg-red-100 text-red-700">Revoked</Badge>}</td>
+                                                                        <td className="py-3">
+                                                                            <div className="flex items-center gap-2">
+                                                                                {k.isActive ? (
+                                                                                    <Button size="sm" variant="outline" onClick={() => handleRevoke(k._id)}>Revoke</Button>
+                                                                                ) : (
+                                                                                    <Button size="sm" onClick={() => handleActivate(k._id)}>Activate</Button>
+                                                                                )}
+                                                                                <Button size="sm" variant="destructive" onClick={() => handleDeleteKey(k._id)}>Delete</Button>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Create key dialog */}
+                                        <Dialog open={showCreateKeyDialog} onOpenChange={(o) => !o && setShowCreateKeyDialog(false)}>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Create API Key</DialogTitle>
+                                                    <DialogDescription>Give the key a descriptive name. The plaintext key will be shown only once.</DialogDescription>
+                                                </DialogHeader>
+                                                <div className="py-4">
+                                                    <Label className="text-sm">Name</Label>
+                                                    <Input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} className="mt-2" />
+                                                </div>
+                                                <DialogFooter className="flex gap-2">
+                                                    <Button variant="outline" onClick={() => setShowCreateKeyDialog(false)}>Cancel</Button>
+                                                    <Button onClick={handleCreateApiKey}>Create</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+
+                                        {/* Show plaintext created key once */}
+                                        <Dialog open={!!createdPlainKey} onOpenChange={() => setCreatedPlainKey(null)}>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>API Key Created</DialogTitle>
+                                                    <DialogDescription>Copy the key now — it will not be shown again.</DialogDescription>
+                                                </DialogHeader>
+                                                <div className="py-4">
+                                                    <Input readOnly value={createdPlainKey || ''} />
+                                                    <div className="mt-3 flex gap-2 justify-end">
+                                                        <Button onClick={() => { navigator.clipboard?.writeText(createdPlainKey || ''); toast.success('Copied'); }}>Copy</Button>
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={() => setCreatedPlainKey(null)}>Close</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </TabsContent>
+                                )}
                             </Tabs>
                         </div>
                     </div>

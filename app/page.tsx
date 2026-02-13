@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/app-layout'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { Card } from '@/components/ui/card'
@@ -25,49 +26,100 @@ import {
   ArrowUpRight,
   TrendingUp,
 } from 'lucide-react'
-
-const chartData = [
-  { date: 'Oct 01', email: 400, sms: 240, push: 100 },
-  { date: 'Oct 08', email: 600, sms: 390, push: 200 },
-  { date: 'Oct 15', email: 800, sms: 490, push: 300 },
-  { date: 'Oct 22', email: 1100, sms: 590, push: 450 },
-  { date: 'Oct 29', email: 900, sms: 680, push: 350 },
-]
-
-const healthData = [
-  { metric: 'API Gateway', status: 'Healthy', value: '24ms avg', color: 'bg-green-500' },
-  { metric: 'Message Queue', status: 'Healthy', value: '12k/s load', color: 'bg-green-500' },
-  { metric: 'Primary DB', status: 'Healthy', value: '99.99% uptime', color: 'bg-green-500' },
-]
-
-const recentOrganizations = [
-  {
-    id: 1,
-    name: 'Acme Corp',
-    plan: 'Enterprise',
-    signupDate: 'Oct 24, 2023',
-    status: 'Active',
-    color: 'bg-purple-500',
-  },
-  {
-    id: 2,
-    name: 'Globex',
-    plan: 'Pro',
-    signupDate: 'Oct 23, 2023',
-    status: 'Active',
-    color: 'bg-blue-500',
-  },
-  {
-    id: 3,
-    name: 'Soylent Corp',
-    plan: 'Starter',
-    signupDate: 'Oct 22, 2023',
-    status: 'Active',
-    color: 'bg-pink-500',
-  },
-]
+import { dashboardService } from '@/services/dashboard.service'
 
 export default function Dashboard() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [globalStats, setGlobalStats] = useState<any>(null)
+  const [usageStats, setUsageStats] = useState<any>(null)
+  const [chartData, setChartData] = useState<any[]>([])
+  const colors = ['bg-purple-500', 'bg-blue-500', 'bg-pink-500', 'bg-green-500', 'bg-orange-500']
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const [stats, logs, usage] = await Promise.all([
+          dashboardService.getGlobalStats(),
+          dashboardService.getMessageLogsChartData(),
+          dashboardService.getUsageStats(),
+        ])
+
+        setGlobalStats(stats)
+        setUsageStats(usage)
+        setChartData(logs && logs.length > 0 ? logs : getDefaultChartData())
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err)
+        setError('Failed to load dashboard data. Please try again.')
+        // Set default data on error to show something
+        setGlobalStats(getDefaultStats())
+        setUsageStats(getDefaultUsageStats())
+        setChartData(getDefaultChartData())
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
+
+  if (!globalStats) {
+    return (
+      <AppLayout>
+        <div className="p-8 text-center">
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k'
+    return num.toString()
+  }
+
+  const formatCurrency = (num: number) => {
+    return '$' + num.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  }
+
+  const healthData = [
+    {
+      metric: 'API Gateway',
+      status: globalStats?.systemHealth?.apiGateway?.status || 'Healthy',
+      value: `${globalStats?.systemHealth?.apiGateway?.latency || 24}ms avg`,
+      color: 'bg-green-500',
+    },
+    {
+      metric: 'Message Queue',
+      status: globalStats?.systemHealth?.messageQueue?.status || 'Healthy',
+      value: `${globalStats?.systemHealth?.messageQueue?.load || '12k/s'} load`,
+      color: 'bg-green-500',
+    },
+    {
+      metric: 'Primary DB',
+      status: globalStats?.systemHealth?.primaryDb?.status || 'Healthy',
+      value: `${globalStats?.systemHealth?.primaryDb?.uptime || 99.99}% uptime`,
+      color: 'bg-green-500',
+    },
+  ]
+
+  const recentOrganizations = globalStats?.recentOrganizations?.map((org: any, idx: number) => ({
+    id: org._id,
+    name: org.name,
+    plan: org.plan,
+    signupDate: new Date(org.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }),
+    status: org.status || 'Active',
+    color: colors[idx % colors.length],
+  })) || []
+
   return (
     <AppLayout>
       <div className="p-8">
@@ -75,31 +127,32 @@ export default function Dashboard() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-1">Overview</h1>
           <p className="text-muted-foreground">Welcome back! Here's what's happening with your platform today.</p>
+          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
         </div>
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <MetricCard
             title="Total Organizations"
-            value="1,240"
+            value={globalStats?.totalOrganizations?.toLocaleString() || '0'}
             icon={<Building2 className="w-6 h-6" />}
             trend={{ value: 12, direction: 'up', label: 'this month' }}
           />
           <MetricCard
             title="Total Notifications (30d)"
-            value="8.4M"
+            value={formatNumber(globalStats?.totalNotifications || 0)}
             icon={<Mail className="w-6 h-6" />}
             trend={{ value: 5.2, direction: 'up', label: 'vs last month' }}
           />
           <MetricCard
             title="Success Rate"
-            value="99.85%"
+            value={`${globalStats?.successRate || 0}%`}
             icon={<TrendingUp className="w-6 h-6" />}
             trend={{ value: 0.02, direction: 'up', label: 'this week' }}
           />
           <MetricCard
             title="MRR"
-            value="$42,500"
+            value={formatCurrency(globalStats?.mrr || 0)}
             icon={<DollarSign className="w-6 h-6" />}
             trend={{ value: 8, direction: 'up', label: 'vs last month' }}
           />
@@ -111,6 +164,22 @@ export default function Dashboard() {
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-foreground mb-1">Notification Volume by Channel</h2>
               <p className="text-sm text-muted-foreground">Traffic distribution over the last 30 days</p>
+              
+              {/* Usage Stats Lines */}
+              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+                <div className="text-center">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Email</p>
+                  <p className="text-2xl font-bold text-foreground">{usageStats?.emailCount || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">SMS</p>
+                  <p className="text-2xl font-bold text-foreground">{usageStats?.smsCount || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">WhatsApp</p>
+                  <p className="text-2xl font-bold text-foreground">{usageStats?.whatsappCount || 0}</p>
+                </div>
+              </div>
             </div>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData}>
@@ -144,7 +213,7 @@ export default function Dashboard() {
                   dataKey="push"
                   stroke="var(--color-chart-3)"
                   strokeWidth={2}
-                  name="Push"
+                  name="WhatsApp"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -193,7 +262,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {recentOrganizations.map((org) => (
-                  <tr key={org.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                  <tr key={org._id} className="border-b border-border hover:bg-muted/50 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg ${org.color} flex items-center justify-center text-white text-xs font-semibold`}>
@@ -218,4 +287,42 @@ export default function Dashboard() {
       </div>
     </AppLayout>
   )
+}
+
+// Default data fallbacks
+function getDefaultStats() {
+  return {
+    totalOrganizations: 0,
+    totalNotifications: 0,
+    totalSms: 0,
+    totalEmail: 0,
+    totalWhatsapp: 0,
+    successRate: 0,
+    mrr: 0,
+    recentOrganizations: [],
+    systemHealth: {
+      apiGateway: { status: 'Checking', latency: 0 },
+      messageQueue: { status: 'Checking', load: '0' },
+      primaryDb: { status: 'Checking', uptime: 0 },
+    },
+  }
+}
+
+function getDefaultUsageStats() {
+  return {
+    _id: null,
+    smsCount: 0,
+    emailCount: 0,
+    whatsappCount: 0,
+  }
+}
+
+function getDefaultChartData() {
+  return [
+    { date: 'Oct 01', email: 0, sms: 0, push: 0 },
+    { date: 'Oct 08', email: 0, sms: 0, push: 0 },
+    { date: 'Oct 15', email: 0, sms: 0, push: 0 },
+    { date: 'Oct 22', email: 0, sms: 0, push: 0 },
+    { date: 'Oct 29', email: 0, sms: 0, push: 0 },
+  ]
 }
