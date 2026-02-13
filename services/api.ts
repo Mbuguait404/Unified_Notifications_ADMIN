@@ -97,5 +97,22 @@ export const api = {
 
         return handleResponse(response);
     },
+
+    delete: async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
+        const token = getAuthToken();
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...options.headers,
+        };
+
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            ...options,
+            method: 'DELETE',
+            headers,
+        });
+
+        return handleResponse(response);
+    },
 };
 
