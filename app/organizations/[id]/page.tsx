@@ -1,5 +1,7 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layout/app-layout";
@@ -39,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { organizationService } from "@/services/organizations.service";
+import { paymentMethodsService } from "@/services/payment-methods.service";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -91,6 +94,11 @@ export default function OrganizationDetailsPage({
   const [showCreateKeyDialog, setShowCreateKeyDialog] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [createdPlainKey, setCreatedPlainKey] = useState<string | null>(null);
+
+  // Payment Methods state
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [assignedPaymentMethodId, setAssignedPaymentMethodId] = useState<string>("default");
+  const [originalAssignedId, setOriginalAssignedId] = useState<string>("default");
 
   async function performSuspend() {
     const nextStatus =
@@ -382,6 +390,49 @@ export default function OrganizationDetailsPage({
     }
   };
 
+  const handleSavePaymentConfig = async () => {
+    try {
+      setIsSaving(true);
+      const methodId =
+        assignedPaymentMethodId === "default" ? null : assignedPaymentMethodId;
+      await organizationService.assignPaymentMethod(selectedOrg.id, methodId);
+      setOriginalAssignedId(assignedPaymentMethodId);
+
+      // Update local state
+      setSelectedOrg((prev: any) => ({
+        ...prev,
+        paymentMethod: methodId
+      }));
+
+      toast.success("Payment configuration saved");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save payment configuration");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === "superadmin" && selectedOrg?.id) {
+      // Fetch payment methods
+      paymentMethodsService
+        .getAllPaymentMethods()
+        .then((methods) => setPaymentMethods(methods))
+        .catch((err) => console.error("Failed to fetch payment methods", err));
+
+      // Set current selection
+      const current = selectedOrg.paymentMethod || "default";
+      setAssignedPaymentMethodId(current);
+      // Only set original if it's the first time or we just saved
+      if (originalAssignedId === "default" && current !== "default") {
+        setOriginalAssignedId(current);
+      } else if (originalAssignedId === "default" && current === "default") {
+        setOriginalAssignedId("default");
+      }
+    }
+  }, [user?.role, selectedOrg?.id]); // Run when user or org loads
+
   if (isLoading) {
     return (
       <AppLayout>
@@ -429,11 +480,10 @@ export default function OrganizationDetailsPage({
                   </div>
                 </div>
                 <Badge
-                  className={`text-base px-4 py-2 ${
-                    selectedOrg.status === "Active"
-                      ? "bg-green-100 text-green-700 border-green-200"
-                      : "bg-red-100 text-red-700 border-red-200"
-                  }`}
+                  className={`text-base px-4 py-2 ${selectedOrg.status === "Active"
+                    ? "bg-green-100 text-green-700 border-green-200"
+                    : "bg-red-100 text-red-700 border-red-200"
+                    }`}
                   variant="outline"
                 >
                   {selectedOrg.status}
@@ -770,9 +820,9 @@ export default function OrganizationDetailsPage({
                     <p className="text-base font-medium">
                       {selectedOrg.createdAtRaw
                         ? format(
-                            new Date(selectedOrg.createdAtRaw),
-                            "MMM dd, yyyy",
-                          )
+                          new Date(selectedOrg.createdAtRaw),
+                          "MMM dd, yyyy",
+                        )
                         : "N/A"}
                     </p>
                   </div>
@@ -883,16 +933,16 @@ export default function OrganizationDetailsPage({
 
               {/* Tabs */}
               <Tabs defaultValue="details" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3 h-14 bg-muted/50 p-1">
+                <TabsList className="flex w-full h-14 bg-muted/50 p-1">
                   <TabsTrigger
                     value="details"
-                    className="text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
                   >
                     Organization Details
                   </TabsTrigger>
                   <TabsTrigger
                     value="credentials"
-                    className="text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
                   >
                     Credentials
                   </TabsTrigger>
@@ -900,11 +950,19 @@ export default function OrganizationDetailsPage({
                     (user.role === "admin" || user.role === "superadmin") && (
                       <TabsTrigger
                         value="apiKeys"
-                        className="text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                        className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
                       >
                         API Keys
                       </TabsTrigger>
                     )}
+                  {user?.role === "superadmin" && (
+                    <TabsTrigger
+                      value="paymentConfig"
+                      className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    >
+                      Payment Config
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="details" className="space-y-6 outline-none">
@@ -1312,15 +1370,15 @@ export default function OrganizationDetailsPage({
                                       <td className="py-3">
                                         {k.createdAt
                                           ? new Date(
-                                              k.createdAt,
-                                            ).toLocaleString()
+                                            k.createdAt,
+                                          ).toLocaleString()
                                           : "—"}
                                       </td>
                                       <td className="py-3">
                                         {k.lastUsedAt
                                           ? new Date(
-                                              k.lastUsedAt,
-                                            ).toLocaleString()
+                                            k.lastUsedAt,
+                                          ).toLocaleString()
                                           : "—"}
                                       </td>
                                       <td className="py-3">
@@ -1448,6 +1506,71 @@ export default function OrganizationDetailsPage({
                       {/* Payment link dialog moved to top-level so it renders regardless of active tab */}
                     </TabsContent>
                   )}
+                {user?.role === "superadmin" && (
+                  <TabsContent
+                    value="paymentConfig"
+                    className="space-y-6 outline-none"
+                  >
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-2xl flex items-center gap-3">
+                          <CreditCard className="w-6 h-6" />
+                          Payment Configuration
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6 max-w-xl">
+                          <div className="space-y-2">
+                            <Label>Payment Source</Label>
+                            <Select
+                              value={assignedPaymentMethodId}
+                              onValueChange={setAssignedPaymentMethodId}
+                            >
+                              <SelectTrigger className="h-12 text-base">
+                                <SelectValue placeholder="Select payment method" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="default" className="text-base py-3">
+                                  Use System Default
+                                </SelectItem>
+                                {paymentMethods.map((method) => (
+                                  <SelectItem
+                                    key={method._id}
+                                    value={method._id}
+                                    className="text-base py-3"
+                                  >
+                                    {method.name} ({method.provider} -{" "}
+                                    {method.type})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Select which payment integration this organization
+                              should use. "Use System Default" will use the
+                              globally configured default method.
+                            </p>
+                          </div>
+
+                          <div className="pt-4 border-t flex justify-end">
+                            <Button
+                              size="lg"
+                              onClick={handleSavePaymentConfig}
+                              disabled={
+                                isSaving
+                              }
+                            >
+                              {isSaving && (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              )}
+                              Save Configuration
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                )}
               </Tabs>
             </div>
           </div>

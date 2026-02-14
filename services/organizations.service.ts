@@ -100,4 +100,8 @@ export const organizationService = {
     generatePublicPaySession: async (id: string, payload: { amount?: number; mode?: string; expiresInMinutes?: number }) => {
         return api.post(`/organizations/${id}/public-pay-session`, payload);
     },
+
+    assignPaymentMethod: async (orgId: string, paymentMethodId: string | null) => {
+        return api.patch(`/organizations/${orgId}/payment-method`, { paymentMethodId });
+    },
 };
