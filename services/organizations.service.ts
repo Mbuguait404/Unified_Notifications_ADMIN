@@ -97,4 +97,7 @@ export const organizationService = {
     }> => {
         return api.get(`/organizations/${id}/stats`);
     },
+    generatePublicPaySession: async (id: string, payload: { amount?: number; mode?: string; expiresInMinutes?: number }) => {
+        return api.post(`/organizations/${id}/public-pay-session`, payload);
+    },
 };
