@@ -271,7 +271,7 @@ export default function OrganizationsPage() {
                       <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Organization Name</th>
                       <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Created Date</th>
                       <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Current Plan</th>
-                      <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Notifications (MTD)</th>
+                      <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Credits</th>
                       <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Status</th>
                       <th className="text-left py-3 px-6 text-sm font-semibold text-muted-foreground">Actions</th>
                     </tr>
@@ -305,7 +305,7 @@ export default function OrganizationsPage() {
                             {org.plan}
                           </Badge>
                         </td>
-                        <td className="py-4 px-6 text-sm text-foreground">{org.notificationsMTD}</td>
+                        <td className="py-4 px-6 text-sm text-foreground">{org.credits}</td>
                         <td className="py-4 px-6">
                           <Badge className={org.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                             {org.status}
