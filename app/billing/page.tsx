@@ -10,7 +10,8 @@ import {
   Smartphone,
   DollarSign,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  LucideIcon
 } from 'lucide-react'
 import { PaymentsTab } from '@/components/billing/payments-tab'
 import { UsageTab } from '@/components/billing/usage-tab'
@@ -18,14 +19,24 @@ import { PaymentMethodsTab } from '@/components/billing/payment-methods-tab'
 import { transactionsService } from '@/services/transactions.service'
 import { paymentMethodsService } from '@/services/payment-methods.service'
 
+interface StatCard {
+  title: string
+  value: string
+  change: string
+  trend: 'up' | 'down' | 'neutral'
+  icon: LucideIcon
+  color: string
+  bgColor: string
+}
+
 export default function BillingPage() {
   const [activeTab, setActiveTab] = useState('payments')
-  const [stats, setStats] = useState([
+  const [stats, setStats] = useState<StatCard[]>([
     {
       title: 'Total Revenue',
       value: 'KES 0',
       change: '0%',
-      trend: 'neutral' as const,
+      trend: 'neutral',
       icon: DollarSign,
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
@@ -34,7 +45,7 @@ export default function BillingPage() {
       title: 'This Month',
       value: 'KES 0',
       change: '0%',
-      trend: 'neutral' as const,
+      trend: 'neutral',
       icon: TrendingUp,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
@@ -43,7 +54,7 @@ export default function BillingPage() {
       title: 'Total Transactions',
       value: '0',
       change: '0%',
-      trend: 'neutral' as const,
+      trend: 'neutral',
       icon: CreditCard,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
@@ -52,7 +63,7 @@ export default function BillingPage() {
       title: 'Active Payment Methods',
       value: '0',
       change: '0',
-      trend: 'neutral' as const,
+      trend: 'neutral',
       icon: Smartphone,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',
@@ -102,7 +113,7 @@ export default function BillingPage() {
             title: 'Total Revenue',
             value: `KES ${totalRevenue.toLocaleString()}`,
             change: `${revenueChange >= 0 ? '+' : ''}${revenueChange.toFixed(1)}%`,
-            trend: (revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'neutral') as any,
+            trend: (revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'neutral'),
             icon: DollarSign,
             color: 'text-green-500',
             bgColor: 'bg-green-500/10',
@@ -111,7 +122,7 @@ export default function BillingPage() {
             title: 'This Month',
             value: `KES ${thisMonthRevenue.toLocaleString()}`,
             change: `${revenueChange >= 0 ? '+' : ''}${revenueChange.toFixed(1)}%`,
-            trend: (revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'neutral') as any,
+            trend: (revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'neutral'),
             icon: TrendingUp,
             color: 'text-blue-500',
             bgColor: 'bg-blue-500/10',
@@ -120,7 +131,7 @@ export default function BillingPage() {
             title: 'Total Transactions',
             value: totalTransactionsCount.toLocaleString(),
             change: `${transactionChange >= 0 ? '+' : ''}${transactionChange.toFixed(1)}%`,
-            trend: (transactionChange > 0 ? 'up' : transactionChange < 0 ? 'down' : 'neutral') as any,
+            trend: (transactionChange > 0 ? 'up' : transactionChange < 0 ? 'down' : 'neutral'),
             icon: CreditCard,
             color: 'text-purple-500',
             bgColor: 'bg-purple-500/10',
@@ -129,7 +140,7 @@ export default function BillingPage() {
             title: 'Active Payment Methods',
             value: activeMethods.toString(),
             change: '0',
-            trend: 'neutral' as const,
+            trend: 'neutral',
             icon: Smartphone,
             color: 'text-orange-500',
             bgColor: 'bg-orange-500/10',
