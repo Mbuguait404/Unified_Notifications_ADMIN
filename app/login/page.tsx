@@ -38,55 +38,67 @@ export default function LoginPage() {
 
     return (
         <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
-            <div className="flex items-center justify-center py-12">
-                <div className="mx-auto grid w-[350px] gap-6">
-                    <div className="flex flex-col gap-2 text-center">
-                        <div className="flex justify-center mb-4">
-                            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary text-primary-foreground">
-                                <LayoutDashboard className="w-6 h-6" />
+            <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+                <div className="mx-auto w-full max-w-[400px] flex flex-col gap-8">
+                    <div className="flex flex-col gap-4 text-center">
+                        <div className="flex justify-center">
+                            <div className="relative w-26 h-26 transition-transform hover:scale-105 duration-300">
+                                <Image
+                                    src="/logo/uniflow-logo.png"
+                                    alt="Uniflow Logo"
+                                    fill
+                                    className="object-contain"
+                                    priority
+                                />
                             </div>
                         </div>
-                        <h1 className="text-3xl font-bold">Admin Login</h1>
-                        <p className="text-balance text-muted-foreground">
-                            Enter your email below to login to your account
-                        </p>
+                        <div className="space-y-1">
+                            <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin Login</h1>
+                            <p className="text-muted-foreground">
+                                Enter your credentials to access the admin panel
+                            </p>
+                        </div>
                     </div>
-                    <Card className="border-border">
-                        <CardHeader>
-                            <CardTitle>Sign in</CardTitle>
+
+                    <Card className="border-border shadow-xl shadow-primary/5 bg-card/50 backdrop-blur-sm">
+                        <CardHeader className="space-y-1">
+                            <CardTitle className="text-xl">Sign in</CardTitle>
                             <CardDescription>
-                                Use your organization email to access the dashboard.
+                                Access the Unified Notifications dashboard
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={onSubmit}>
                                 <div className="grid gap-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="email">Email</Label>
+                                        <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                                         <Input
                                             id="email"
                                             name="email"
                                             type="email"
-                                            placeholder="m@example.com"
+                                            placeholder="admin@uniflow.com"
                                             required
+                                            className="h-10 transition-all focus:ring-2 focus:ring-primary/20"
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="password">Password</Label>
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="password">Password</Label>
+                                        </div>
 
-                                        <div className="relative">
+                                        <div className="relative group">
                                             <Input
                                                 id="password"
                                                 name="password"
                                                 type={showPassword ? 'text' : 'password'}
                                                 required
-                                                className="pr-10"
+                                                className="pr-10 h-10 transition-all focus:ring-2 focus:ring-primary/20"
                                             />
 
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword((prev) => !prev)}
-                                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
                                                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                                             >
                                                 {showPassword ? (
@@ -98,36 +110,68 @@ export default function LoginPage() {
                                         </div>
                                     </div>
 
-                                    {error && <p className="text-sm text-destructive font-medium">{error}</p>}
+                                    {error && (
+                                        <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                                            <p className="text-xs text-destructive font-medium text-center">{error}</p>
+                                        </div>
+                                    )}
 
-                                    <Button type="submit" className="w-full" disabled={isLoading}>
+                                    <Button type="submit" className="w-full h-10 font-medium transition-all hover:opacity-90 active:scale-[0.98]" disabled={isLoading}>
                                         {isLoading ? (
                                             <>
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Signing in...
+                                                Authenticating...
                                             </>
                                         ) : (
-                                            'Sign in'
+                                            'Sign in to Dashboard'
                                         )}
                                     </Button>
                                 </div>
                             </form>
                         </CardContent>
                     </Card>
-                    <div className="mt-4 text-center text-sm">
-                        <p className="text-muted-foreground">
-                            Protected Area
+
+                    <div className="text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">
+                            Secure Enterprise Portal
                         </p>
                     </div>
                 </div>
             </div>
-            <div className="hidden bg-muted lg:block">
-                <div className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale bg-zinc-900 flex items-center justify-center" >
-                    <div className="text-center p-10">
-                        <h2 className="text-2xl font-bold text-white mb-4">Unified Notifications Admin</h2>
-                        <p className="text-gray-400 max-w-md mx-auto">
-                            Manage organizations, monitor system health, and oversee notification traffic from a single centralized dashboard.
+
+            <div className="hidden lg:block relative overflow-hidden bg-[#02006D]">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#02006D] via-[#02006D] to-[#5555E7] opacity-90" />
+
+                {/* Decorative Elements */}
+                <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-white/5 blur-3xl" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-3xl" />
+
+                <div className="relative h-full w-full flex flex-col items-center justify-center p-12 text-center text-white">
+                    <div className="relative w-64 h-64 mb-8 animate-in fade-in zoom-in duration-1000">
+                        <Image
+                            src="/logo/uniflow-logo.png"
+                            alt="Uniflow Logo"
+                            fill
+                            className="object-contain drop-shadow-2xl brightness-0 invert"
+                            priority
+                        />
+                    </div>
+
+                    <div className="max-w-md space-y-4">
+                        {/* <h2 className="text-4xl font-bold tracking-tight">
+                            Unified Notifications
+                        </h2> */}
+                        <p className="text-lg text-blue-100/80 leading-relaxed">
+                            Control and monitor your entire notification ecosystem from one powerful, centralized administrative interface.
                         </p>
+                    </div>
+
+                    <div className="absolute bottom-12 left-12 right-12 flex justify-between items-center text-xs text-blue-100/40">
+                        <p>© {new Date().getFullYear()} Lancola Tech</p>
+                        <div className="flex gap-4">
+                            <span>Privacy Policy</span>
+                            <span>Terms of Service</span>
+                        </div>
                     </div>
                 </div>
             </div>

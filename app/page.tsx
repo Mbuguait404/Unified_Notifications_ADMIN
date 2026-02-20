@@ -164,7 +164,7 @@ export default function Dashboard() {
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-foreground mb-1">Notification Volume by Channel</h2>
               <p className="text-sm text-muted-foreground">Traffic distribution over the last 30 days</p>
-              
+
               {/* Usage Stats Lines */}
               <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
                 <div className="text-center">
@@ -184,7 +184,13 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis stroke="var(--color-muted-foreground)" />
+                <XAxis
+                  dataKey="date"
+                  stroke="var(--color-muted-foreground)"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <YAxis stroke="var(--color-muted-foreground)" />
                 <Tooltip
                   contentStyle={{
@@ -319,10 +325,12 @@ function getDefaultUsageStats() {
 
 function getDefaultChartData() {
   return [
-    { date: 'Oct 01', email: 0, sms: 0, push: 0 },
-    { date: 'Oct 08', email: 0, sms: 0, push: 0 },
-    { date: 'Oct 15', email: 0, sms: 0, push: 0 },
-    { date: 'Oct 22', email: 0, sms: 0, push: 0 },
-    { date: 'Oct 29', email: 0, sms: 0, push: 0 },
+    { date: 'Day 1', email: 0, sms: 0, push: 0 },
+    { date: 'Day 5', email: 0, sms: 0, push: 0 },
+    { date: 'Day 10', email: 0, sms: 0, push: 0 },
+    { date: 'Day 15', email: 0, sms: 0, push: 0 },
+    { date: 'Day 20', email: 0, sms: 0, push: 0 },
+    { date: 'Day 25', email: 0, sms: 0, push: 0 },
+    { date: 'Day 30', email: 0, sms: 0, push: 0 },
   ]
 }
