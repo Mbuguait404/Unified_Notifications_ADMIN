@@ -45,6 +45,7 @@ import {
 import { format } from "date-fns";
 import { organizationService } from "@/services/organizations.service";
 import { paymentMethodsService } from "@/services/payment-methods.service";
+import { transactionsService, Transaction } from "@/services/transactions.service";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -101,6 +102,11 @@ export default function OrganizationDetailsPage({
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [assignedPaymentMethodId, setAssignedPaymentMethodId] = useState<string>("default");
   const [originalAssignedId, setOriginalAssignedId] = useState<string>("default");
+
+  // Transactions state
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
 
   // Visibility state for credentials
   const [showSmsApiKey, setShowSmsApiKey] = useState(false);
@@ -210,6 +216,10 @@ export default function OrganizationDetailsPage({
 
         // Set real admin details
         setAdminDetails(statsData.adminDetails);
+
+        // Fetch Transactions
+        fetchTransactions(org._id);
+
         // Fetch API keys for the organization (if permitted)
         try {
           await fetchApiKeys(org._id);
@@ -236,6 +246,18 @@ export default function OrganizationDetailsPage({
       console.error("Failed to load API keys", err);
     } finally {
       setIsLoadingApiKeys(false);
+    }
+  }
+
+  async function fetchTransactions(orgId: string) {
+    try {
+      setIsLoadingTransactions(true);
+      const data = await transactionsService.getOrganizationTransactions(orgId);
+      setTransactions(data);
+    } catch (err) {
+      console.error("Failed to load transactions", err);
+    } finally {
+      setIsLoadingTransactions(false);
     }
   }
 
@@ -595,6 +617,7 @@ export default function OrganizationDetailsPage({
                 size="lg"
                 variant="outline"
                 className="flex items-center gap-2"
+                onClick={() => setActiveTab("transactions")}
               >
                 <CreditCard className="w-5 h-5" />
                 View Transactions
@@ -961,13 +984,19 @@ export default function OrganizationDetailsPage({
               </div>
 
               {/* Tabs */}
-              <Tabs defaultValue="details" className="space-y-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="flex w-full h-14 bg-muted/50 p-1">
                   <TabsTrigger
                     value="details"
                     className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
                   >
                     Organization Details
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="transactions"
+                    className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                  >
+                    Transactions
                   </TabsTrigger>
                   <TabsTrigger
                     value="credentials"
@@ -1652,6 +1681,109 @@ export default function OrganizationDetailsPage({
                     </Card>
                   </TabsContent>
                 )}
+
+                <TabsContent value="transactions" className="space-y-6 outline-none">
+                  <Card className="border-2 shadow-sm">
+                    <CardHeader className="pb-6">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-2xl flex items-center gap-3">
+                          <CreditCard className="w-6 h-6" />
+                          Transaction History
+                        </CardTitle>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchTransactions(selectedOrg.id)}
+                          disabled={isLoadingTransactions}
+                        >
+                          <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingTransactions ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingTransactions ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+                          <p className="text-muted-foreground">Loading transactions...</p>
+                        </div>
+                      ) : transactions.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                            <CreditCard className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-medium">No transactions found</h3>
+                          <p className="text-muted-foreground max-w-xs mx-auto mt-2">
+                            This organization hasn't made any transactions yet.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead className="text-sm text-muted-foreground border-b">
+                              <tr>
+                                <th className="py-4 font-medium">Date</th>
+                                <th className="py-4 font-medium">Description</th>
+                                <th className="py-4 font-medium">Method</th>
+                                <th className="py-4 font-medium">Amount</th>
+                                <th className="py-4 font-medium">Tokens</th>
+                                <th className="py-4 font-medium">Status</th>
+                                <th className="py-4 font-medium text-right">Reference</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {transactions.map((tx) => (
+                                <tr key={tx._id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                  <td className="py-4 text-sm">
+                                    {format(new Date(tx.createdAt), "MMM dd, yyyy")}
+                                    <div className="text-xs text-muted-foreground">
+                                      {format(new Date(tx.createdAt), "HH:mm")}
+                                    </div>
+                                  </td>
+                                  <td className="py-4">
+                                    <div className="text-sm font-medium">{tx.description}</div>
+                                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                      ID: <span className="font-mono">{tx._id.slice(-8)}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-4 text-sm">
+                                    <Badge variant="outline" className="font-normal">
+                                      {tx.paymentMethodId?.name || tx.paymentMethod || "N/A"}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-4 text-sm font-semibold">
+                                    KES {tx.amount.toLocaleString()}
+                                  </td>
+                                  <td className="py-4 text-sm font-medium text-primary">
+                                    +{tx.tokens.toLocaleString()}
+                                  </td>
+                                  <td className="py-4">
+                                    <Badge
+                                      className={`
+                                        ${tx.status === "completed"
+                                          ? "bg-green-100 text-green-700 border-green-200"
+                                          : tx.status === "pending"
+                                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                                            : "bg-red-100 text-red-700 border-red-200"
+                                        }
+                                      `}
+                                      variant="outline"
+                                    >
+                                      {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-4 text-sm text-right font-mono text-muted-foreground">
+                                    {tx.mpesaReference || "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
               </Tabs>
             </div>
           </div>
