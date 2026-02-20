@@ -27,9 +27,12 @@ import {
   ArrowLeft,
   Loader2,
   CreditCard,
+  Eye,
+  EyeOff,
+  RefreshCw,
 } from "lucide-react";
 import { Link as LinkIcon } from "lucide-react";
-import { Key, Plus } from "lucide-react";
+import { Key, Plus, RotateCcw } from "lucide-react";
 import { MoreVertical, Trash, Printer, ShieldAlert } from "lucide-react";
 import {
   DropdownMenu,
@@ -95,10 +98,36 @@ export default function OrganizationDetailsPage({
   const [newKeyName, setNewKeyName] = useState("");
   const [createdPlainKey, setCreatedPlainKey] = useState<string | null>(null);
 
-  // Payment Methods state
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [assignedPaymentMethodId, setAssignedPaymentMethodId] = useState<string>("default");
   const [originalAssignedId, setOriginalAssignedId] = useState<string>("default");
+
+  // Visibility state for credentials
+  const [showSmsApiKey, setShowSmsApiKey] = useState(false);
+  const [showEmailPass, setShowEmailPass] = useState(false);
+
+  const handleResetSmsDefaults = () => {
+    setCredentialsForm((prev: any) => ({
+      ...prev,
+      sms_apiUrl: "https://sms.lancolatech.com/api/services/sendsms/?apikey=",
+      sms_apiKey: "dde2efa9e40d31eae58cd7b1f89c139e",
+      sms_partnerID: "8029",
+      sms_shortCode: "Maziwa Tele",
+    }));
+    toast.success("Default SMS configuration applied");
+  };
+
+  const handleResetEmailDefaults = () => {
+    setCredentialsForm((prev: any) => ({
+      ...prev,
+      email_host: "smtp.gmail.com",
+      email_port: "587",
+      email_user: "uniflownotifications@gmail.com",
+      email_pass: "oscoukeqivwaojmo",
+      // email_from: "Uniflow Notifications",
+    }));
+    toast.success("Default email configuration applied");
+  };
 
   async function performSuspend() {
     const nextStatus =
@@ -320,7 +349,7 @@ export default function OrganizationDetailsPage({
         sector: selectedOrg.sector,
         country: selectedOrg.country,
         credits: selectedOrg.credits,
-        emailFromName: selectedOrg.emailFromName,
+        // emailFromName: selectedOrg.emailFromName,
       });
       toast.success("Organization details saved");
     } catch (err) {
@@ -1042,7 +1071,7 @@ export default function OrganizationDetailsPage({
                             className="h-12 text-base"
                           />
                         </div>
-                        <div className="space-y-3 md:col-span-2">
+                        {/* <div className="space-y-3 md:col-span-2">
                           <Label
                             htmlFor="org-email-from-name"
                             className="text-base font-semibold"
@@ -1060,7 +1089,7 @@ export default function OrganizationDetailsPage({
                             }
                             className="h-12 text-base"
                           />
-                        </div>
+                        </div> */}
                         <div className="space-y-3 md:col-span-2">
                           <Label
                             htmlFor="org-notes"
@@ -1100,10 +1129,21 @@ export default function OrganizationDetailsPage({
                   {/* SMS Credentials */}
                   <Card className="border-2 shadow-sm">
                     <CardHeader className="pb-6">
-                      <CardTitle className="text-2xl flex items-center gap-3">
-                        <Phone className="w-6 h-6" />
-                        SMS Credentials
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-2xl flex items-center gap-3">
+                          <Phone className="w-6 h-6" />
+                          SMS Credentials
+                        </CardTitle>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResetSmsDefaults}
+                          className="text-primary border-primary/20 hover:bg-primary/5"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Autofill Defaults
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1133,18 +1173,33 @@ export default function OrganizationDetailsPage({
                           >
                             API key
                           </Label>
-                          <Input
-                            id="sms-api-key"
-                            type="password"
-                            value={credentialsForm?.sms_apiKey || ""}
-                            onChange={(e) =>
-                              handleCredentialChange(
-                                "sms_apiKey",
-                                e.target.value,
-                              )
-                            }
-                            className="h-12 text-base"
-                          />
+                          <div className="relative">
+                            <Input
+                              id="sms-api-key"
+                              type={showSmsApiKey ? "text" : "password"}
+                              value={credentialsForm?.sms_apiKey || ""}
+                              onChange={(e) =>
+                                handleCredentialChange(
+                                  "sms_apiKey",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-12 text-base pr-12"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1 h-10 w-10 text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowSmsApiKey(!showSmsApiKey)}
+                            >
+                              {showSmsApiKey ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                         <div className="space-y-3">
                           <Label
@@ -1191,10 +1246,21 @@ export default function OrganizationDetailsPage({
                   {/* Email Credentials */}
                   <Card className="border-2 shadow-sm">
                     <CardHeader className="pb-6">
-                      <CardTitle className="text-2xl flex items-center gap-3">
-                        <Mail className="w-6 h-6" />
-                        Email Credentials
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-2xl flex items-center gap-3">
+                          <Mail className="w-6 h-6" />
+                          Email Credentials
+                        </CardTitle>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResetEmailDefaults}
+                          className="text-primary border-primary/20 hover:bg-primary/5"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Autofill Defaults
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1262,20 +1328,35 @@ export default function OrganizationDetailsPage({
                           >
                             Password / App password
                           </Label>
-                          <Input
-                            id="email-pass"
-                            type="password"
-                            value={credentialsForm?.email_pass || ""}
-                            onChange={(e) =>
-                              handleCredentialChange(
-                                "email_pass",
-                                e.target.value,
-                              )
-                            }
-                            className="h-12 text-base"
-                          />
+                          <div className="relative">
+                            <Input
+                              id="email-pass"
+                              type={showEmailPass ? "text" : "password"}
+                              value={credentialsForm?.email_pass || ""}
+                              onChange={(e) =>
+                                handleCredentialChange(
+                                  "email_pass",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-12 text-base pr-12"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1 h-10 w-10 text-muted-foreground hover:text-foreground"
+                              onClick={() => setShowEmailPass(!showEmailPass)}
+                            >
+                              {showEmailPass ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="space-y-3 md:col-span-2">
+                        {/* <div className="space-y-3 md:col-span-2">
                           <Label
                             htmlFor="email-from"
                             className="text-base font-semibold"
@@ -1293,7 +1374,7 @@ export default function OrganizationDetailsPage({
                             }
                             className="h-12 text-base"
                           />
-                        </div>
+                        </div> */}
                       </div>
                     </CardContent>
                   </Card>

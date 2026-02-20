@@ -78,7 +78,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo/uniflow logo.png" alt="Uniflow" width={140} height={36} className="object-contain" />
+          <Image src="/logo/uniflow-logo.png" alt="Uniflow" width={140} height={36} className="object-contain" />
         </Link>
       </div>
 
