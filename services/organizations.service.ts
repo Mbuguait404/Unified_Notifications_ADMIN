@@ -14,6 +14,8 @@ export interface Organization {
         whatsapp: number;
         email: number;
     };
+    smsProvider?: string;
+    providerState?: Record<string, any>;
 }
 
 export const organizationService = {
@@ -103,5 +105,13 @@ export const organizationService = {
 
     assignPaymentMethod: async (orgId: string, paymentMethodId: string | null) => {
         return api.patch(`/organizations/${orgId}/payment-method`, { paymentMethodId });
+    },
+
+    getAvailableSmsProviders: async (): Promise<any[]> => {
+        return api.get('/api/admin/sms-providers');
+    },
+
+    updateOrganizationSmsProvider: async (orgId: string, provider: string, credentials: Record<string, string>) => {
+        return api.patch(`/organizations/${orgId}/sms-provider`, { provider, credentials });
     },
 };

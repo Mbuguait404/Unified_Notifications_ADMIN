@@ -66,6 +66,9 @@ export default function OrganizationDetailsPage({
   const router = useRouter();
   const { id } = use(params);
   const [selectedOrg, setSelectedOrg] = useState<any | null>(null);
+  const [availableProviders, setAvailableProviders] = useState<any[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string>("lancola");
+  const [fetchedProviders, setFetchedProviders] = useState(false);
   const [credentialsForm, setCredentialsForm] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -187,10 +190,18 @@ export default function OrganizationDetailsPage({
       try {
         setIsLoading(true);
         // Fetch organization details and stats in parallel
-        const [org, statsData] = await Promise.all([
+        const [org, statsData, providers] = await Promise.all([
           organizationService.getOrganizationById(id),
           organizationService.getOrganizationStats(id),
+          organizationService.getAvailableSmsProviders().catch(() => [
+            { id: 'lancola', name: 'Lancola SMS', fields: [] },
+            { id: 'belio', name: 'Belio SMS', fields: [] }
+          ])
         ]);
+        
+        setAvailableProviders(providers);
+        setFetchedProviders(true);
+        setSelectedProvider(org.smsProvider || "lancola");
 
         setSelectedOrg({
           ...org,
@@ -391,6 +402,29 @@ export default function OrganizationDetailsPage({
       toast.success("Credentials saved successfully");
     } catch (err) {
       toast.error("Failed to save credentials");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleSaveSmsProvider = async () => {
+    try {
+      setIsSaving(true);
+      await organizationService.updateOrganizationSmsProvider(
+        id,
+        selectedProvider,
+        credentialsForm, // Pass credentials form as it is — it holds all of them now
+      );
+      
+      setSelectedOrg((prev: any) => ({
+        ...prev,
+        smsProvider: selectedProvider
+      }));
+
+      toast.success(`SMS Provider updated to ${selectedProvider}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save SMS provider settings");
     } finally {
       setIsSaving(false);
     }
@@ -1013,6 +1047,14 @@ export default function OrganizationDetailsPage({
                         API Keys
                       </TabsTrigger>
                     )}
+                  {user?.role === "superadmin" && (
+                    <TabsTrigger
+                      value="smsProvider"
+                      className="flex-1 text-lg font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    >
+                      SMS Provider
+                    </TabsTrigger>
+                  )}
                   {user?.role === "superadmin" && (
                     <TabsTrigger
                       value="paymentConfig"
@@ -1676,6 +1718,102 @@ export default function OrganizationDetailsPage({
                               Save Configuration
                             </Button>
                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                )}
+
+                {user?.role === "superadmin" && (
+                  <TabsContent value="smsProvider" className="space-y-6 outline-none">
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="pb-6">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-2xl flex items-center gap-3">
+                            <ShieldCheck className="w-6 h-6 text-primary" />
+                            SMS Provider Strategy
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-8">
+                        <div className="space-y-4 max-w-xl">
+                          <Label className="text-base font-semibold">Active Provider</Label>
+                          <Select
+                            value={selectedProvider}
+                            onValueChange={(val) => setSelectedProvider(val)}
+                          >
+                            <SelectTrigger className="h-12 text-base">
+                              <SelectValue placeholder="Select provider" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableProviders.map((p) => (
+                                <SelectItem key={p.id} value={p.id} className="text-base">
+                                  {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-sm text-muted-foreground">
+                            {availableProviders.find(p => p.id === selectedProvider)?.description || "Select a provider to see details."}
+                          </p>
+                        </div>
+
+                        {selectedProvider && (
+                          <div className="pt-6 border-t">
+                            <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                              {/* <Settings className="w-5 h-5 text-muted-foreground" /> */}
+                              Provider Configuration: {availableProviders.find(p => p.id === selectedProvider)?.name}
+                            </h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              {availableProviders.find(p => p.id === selectedProvider)?.fields.map((field: any) => (
+                                <div key={field.key} className="space-y-3">
+                                  <Label htmlFor={`provider-${field.key}`} className="text-base font-semibold">
+                                    {field.label}
+                                  </Label>
+                                  <div className="relative">
+                                    <Input
+                                      id={`provider-${field.key}`}
+                                      type={field.type}
+                                      value={credentialsForm?.[field.key] || ""}
+                                      onChange={(e) => handleCredentialChange(field.key, e.target.value)}
+                                      placeholder={field.placeholder}
+                                      className="h-12 text-base"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Special display for current provider state (like tokens) */}
+                        {selectedOrg?.providerState?.[selectedProvider] && (
+                          <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Active State ({selectedProvider})</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {Object.entries(selectedOrg.providerState[selectedProvider]).map(([k, v]) => (
+                                <div key={k} className="flex flex-col">
+                                  <span className="text-xs text-muted-foreground">{k}</span>
+                                  <span className="text-sm font-mono break-all">{typeof v === 'string' && v.length > 50 ? `${v.slice(0, 50)}...` : String(v)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end pt-4">
+                          <Button
+                            size="lg"
+                            onClick={handleSaveSmsProvider}
+                            disabled={isSaving}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isSaving && (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            )}
+                            Save Provider Settings
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
