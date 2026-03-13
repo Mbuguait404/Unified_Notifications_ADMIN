@@ -20,7 +20,18 @@ const handleResponse = async (response: Response) => {
     }
 
     if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
+        let errorMessage = `API Error: ${response.statusText}`;
+        try {
+            const errorData = await response.json();
+            if (errorData.message) {
+                errorMessage = Array.isArray(errorData.message) 
+                    ? errorData.message[0] 
+                    : errorData.message;
+            }
+        } catch (e) {
+            // If body is not JSON, fall back to statusText
+        }
+        throw new Error(errorMessage);
     }
 
     return response.json();
