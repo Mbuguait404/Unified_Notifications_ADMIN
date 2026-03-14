@@ -50,6 +50,8 @@ export function PaymentMethodModal({
         consumerKey: '',
         consumerSecret: '',
         environment: 'production',
+        provider: 'urchin',
+        clientId: '6985e21adb150991d2cf33af',
         mpesaType: 'paybill',
         storeNumber: '',
         isActive: true,
@@ -62,11 +64,13 @@ export function PaymentMethodModal({
         if (method) {
             setFormData({
                 name: method.name,
-                shortcode: method.shortcode,
-                passkey: method.passkey,
-                consumerKey: method.consumerKey,
-                consumerSecret: method.consumerSecret,
+                shortcode: method.shortcode || '',
+                passkey: method.passkey || '',
+                consumerKey: method.consumerKey || '',
+                consumerSecret: method.consumerSecret || '',
                 environment: method.environment,
+                provider: method.provider || 'urchin',
+                clientId: (method as any).clientId || '',
                 mpesaType: method.mpesaType || 'paybill',
                 storeNumber: method.storeNumber || '',
                 isActive: method.isActive,
@@ -80,6 +84,8 @@ export function PaymentMethodModal({
                 consumerKey: '',
                 consumerSecret: '',
                 environment: 'production',
+                provider: 'urchin',
+                clientId: '6985e21adb150991d2cf33af',
                 mpesaType: 'paybill',
                 storeNumber: '',
                 isActive: true,
@@ -108,22 +114,24 @@ export function PaymentMethodModal({
             newErrors.name = 'Name is required'
         }
 
-        if (!formData.shortcode.trim()) {
-            newErrors.shortcode = 'Shortcode is required'
-        } else if (!/^\d+$/.test(formData.shortcode)) {
-            newErrors.shortcode = 'Shortcode must contain only numbers'
-        }
+        if (formData.provider !== 'urchin') {
+            if (!formData.shortcode.trim()) {
+                newErrors.shortcode = 'Shortcode is required'
+            } else if (!/^\d+$/.test(formData.shortcode)) {
+                newErrors.shortcode = 'Shortcode must contain only numbers'
+            }
 
-        if (!formData.passkey.trim()) {
-            newErrors.passkey = 'Passkey is required'
-        }
+            if (!formData.passkey.trim()) {
+                newErrors.passkey = 'Passkey is required'
+            }
 
-        if (!formData.consumerKey.trim()) {
-            newErrors.consumerKey = 'Consumer Key is required'
-        }
+            if (!formData.consumerKey.trim()) {
+                newErrors.consumerKey = 'Consumer Key is required'
+            }
 
-        if (!formData.consumerSecret.trim()) {
-            newErrors.consumerSecret = 'Consumer Secret is required'
+            if (!formData.consumerSecret.trim()) {
+                newErrors.consumerSecret = 'Consumer Secret is required'
+            }
         }
 
         setErrors(newErrors)
@@ -132,7 +140,7 @@ export function PaymentMethodModal({
 
     const handleSubmit = () => {
         if (validate()) {
-            onSave(formData)
+            onSave(formData as any)
         }
     }
 
@@ -213,9 +221,59 @@ export function PaymentMethodModal({
                         </div>
                     </div>
 
+                    {/* Backend Provider */}
+                    <div className="space-y-4">
+                        <h3 className="font-semibold text-sm">Processor Settings</h3>
+                        <div className="space-y-2">
+                            <Label htmlFor="provider">Processor</Label>
+                            <Select
+                                value={formData.provider}
+                                onValueChange={(value) => handleChange('provider', value)}
+                            >
+                                <SelectTrigger id="provider">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="urchin">Urchin (Default & recommended fallback)</SelectItem>
+                                    <SelectItem value="mpesa">Safaricom Native (Direct)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Urchin provides a more resilient wrapper around M-Pesa APIs.
+                            </p>
+                        </div>
+
+                        {formData.provider === 'urchin' && (
+                          <div className="space-y-2 animate-in slide-in-from-top-2 pt-2">
+                              <Label htmlFor="clientId">Urchin Client ID</Label>
+                              <Input
+                                  id="clientId"
+                                  placeholder="e.g., 6985e21adb..."
+                                  value={formData.clientId}
+                                  onChange={(e) => handleChange('clientId', e.target.value)}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                  Provided by Lancola Tech for your Urchin account.
+                              </p>
+                          </div>
+                        )}
+                    </div>
+
                     {/* M-Pesa Credentials */}
                     <div className="space-y-4">
-                        <h3 className="font-semibold text-sm">M-Pesa Credentials</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-sm">M-Pesa Credentials</h3>
+                            {formData.provider === 'urchin' && (
+                                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground uppercase font-bold tracking-wider">
+                                    Optional with Urchin
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground -mt-3">
+                            {formData.provider === 'urchin' 
+                                ? "These are not required when using Urchin as the processor."
+                                : "Required to connect directly to Safaricom's Daraja API."}
+                        </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -236,7 +294,8 @@ export function PaymentMethodModal({
 
                             <div className="space-y-2">
                                 <Label htmlFor="shortcode">
-                                    {formData.mpesaType === 'paybill' ? 'Paybill Number' : 'Till Number'} <span className="text-red-500">*</span>
+                                    {formData.mpesaType === 'paybill' ? 'Paybill Number' : 'Till Number'} 
+                                    {formData.provider !== 'urchin' && <span className="text-red-500"> *</span>}
                                 </Label>
                                 <Input
                                     id="shortcode"
@@ -270,7 +329,7 @@ export function PaymentMethodModal({
 
                         <div className="space-y-2">
                             <Label htmlFor="consumerKey">
-                                Consumer Key <span className="text-red-500">*</span>
+                                Consumer Key {formData.provider !== 'urchin' && <span className="text-red-500">*</span>}
                             </Label>
                             <Input
                                 id="consumerKey"
@@ -287,7 +346,7 @@ export function PaymentMethodModal({
 
                         <div className="space-y-2">
                             <Label htmlFor="consumerSecret">
-                                Consumer Secret <span className="text-red-500">*</span>
+                                Consumer Secret {formData.provider !== 'urchin' && <span className="text-red-500">*</span>}
                             </Label>
                             <Input
                                 id="consumerSecret"
@@ -304,7 +363,7 @@ export function PaymentMethodModal({
 
                         <div className="space-y-2">
                             <Label htmlFor="passkey">
-                                Passkey <span className="text-red-500">*</span>
+                                Passkey {formData.provider !== 'urchin' && <span className="text-red-500">*</span>}
                             </Label>
                             <Input
                                 id="passkey"

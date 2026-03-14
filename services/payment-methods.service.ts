@@ -6,13 +6,14 @@ export interface PaymentMethod {
     name: string;
     type: string;
     provider: string;
-    shortcode: string;
-    passkey: string;
-    consumerKey: string;
-    consumerSecret: string;
+    shortcode?: string;
+    passkey?: string;
+    consumerKey?: string;
+    consumerSecret?: string;
     environment: 'sandbox' | 'production';
     mpesaType: 'paybill' | 'till';
     storeNumber?: string;
+    clientId?: string;
     isDefault: boolean;
     isActive: boolean;
     transactionCount: number;
@@ -23,13 +24,15 @@ export interface PaymentMethod {
 
 export interface CreatePaymentMethodDto {
     name: string;
-    shortcode: string;
-    passkey: string;
-    consumerKey: string;
-    consumerSecret: string;
+    shortcode?: string;
+    passkey?: string;
+    consumerKey?: string;
+    consumerSecret?: string;
     environment?: 'sandbox' | 'production';
     mpesaType?: 'paybill' | 'till';
     storeNumber?: string;
+    clientId?: string;
+    provider?: string;
     isActive?: boolean;
     isDefault?: boolean;
 }
@@ -43,6 +46,8 @@ export interface UpdatePaymentMethodDto {
     environment?: 'sandbox' | 'production';
     mpesaType?: 'paybill' | 'till';
     storeNumber?: string;
+    clientId?: string;
+    provider?: string;
     isActive?: boolean;
     isDefault?: boolean;
 }
