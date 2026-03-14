@@ -65,9 +65,12 @@ export const organizationService = {
         companyName: string;
         sector: string;
         country: string;
+        sendWelcomeEmail?: boolean;
+        sendWelcomeSms?: boolean;
+        createApiKey?: boolean;
     }) => {
         // Reuse the public signup flow which also provisions an organization
-        return api.post('/auth/signup', payload);
+        return api.post<any>('/auth/signup', payload);
     },
 
     // Get organization stats with detailed information
