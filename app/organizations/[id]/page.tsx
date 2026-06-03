@@ -195,7 +195,8 @@ export default function OrganizationDetailsPage({
           organizationService.getOrganizationStats(id),
           organizationService.getAvailableSmsProviders().catch(() => [
             { id: 'lancola', name: 'Lancola SMS', fields: [] },
-            { id: 'belio', name: 'Belio SMS', fields: [] }
+            { id: 'belio', name: 'Belio SMS', fields: [] },
+            { id: 'imarabiz', name: 'ImaraBiz SMS', fields: [] }
           ])
         ]);
         
