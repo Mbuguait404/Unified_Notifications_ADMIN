@@ -1,11 +1,21 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3040';
 
-function getAuthToken(): string | null {
-    if (typeof document === 'undefined') return null;
-    const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
-    if (match) return match[2];
-    return null;
+async function getAuthToken(): Promise<string | null> {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const match = document.cookie.match(new RegExp('(^| )token=([^;]+)'));
+        if (match) return match[2];
+        return null;
+    } else {
+        // Server-side
+        try {
+            const { cookies } = require('next/headers');
+            const cookieStore = await cookies();
+            return cookieStore.get('token')?.value || null;
+        } catch (e) {
+            return null;
+        }
+    }
 }
 
 interface FetchOptions extends RequestInit {
@@ -39,7 +49,7 @@ const handleResponse = async (response: Response) => {
 
 export const api = {
     get: async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
-        const token = getAuthToken();
+        const token = await getAuthToken();
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -56,7 +66,7 @@ export const api = {
     },
 
     post: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
-        const token = getAuthToken();
+        const token = await getAuthToken();
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -74,7 +84,7 @@ export const api = {
     },
 
     patch: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
-        const token = getAuthToken();
+        const token = await getAuthToken();
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -92,7 +102,7 @@ export const api = {
     },
 
     put: async <T>(endpoint: string, body: any, options: FetchOptions = {}): Promise<T> => {
-        const token = getAuthToken();
+        const token = await getAuthToken();
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -110,7 +120,7 @@ export const api = {
     },
 
     delete: async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
-        const token = getAuthToken();
+        const token = await getAuthToken();
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
